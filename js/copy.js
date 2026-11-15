@@ -5,7 +5,6 @@ export const appCopy={
     kicker:(i,n,name)=>`Stop ${i} of ${n} · ${name}`,
     next:"Next stop →",nextStep:"Next",back:"Go back one step",
     cont:"Continue",again:"Do it again",stepOf:(i,n)=>`Step ${i} of ${n}`,ready:l=>`Take your time. Tap “${l}” when you are ready.`,slow:"Slow",fast:"Fast",auto:"Auto",autoOn:"Auto-play is on: it moves on by itself. Tap to pause.",autoOff:"Auto-play: let it move on by itself",
-    intro:["From Send to answer","Your question goes to an AI and comes back.",["20 seconds","from Send to answer."]],
     replay:"See the whole trip ▸",restart:"↺ Start over",
     replayDone:"That was real speed: about <b>one second</b>. No country and no company owns the internet. It is billions of machines that agree to pass a stranger's message along.",
     promptLines:["The capital of","France is..."],prompt:"The capital of France is",
@@ -13,7 +12,7 @@ export const appCopy={
     labels:{phoneTitle:"ChatGPT",ask:"Ask anything",message:"Message",wifi:"Wi-Fi router",tower:"Cell tower",router:"router",fiber:"glass fiber cable",sea:"Ocean floor|13,000 feet deep",speed:"450 million mph",you:"You",far:"The AI's data center",dcs:"Data center",to:"To",
       dc:"DATA CENTER",dnsTitle:"The internet's address book",guard:"Security check",checking:"Checking…",ok:"✓ It's you",director:"Traffic director",busy:"busy",free:"free",gpu:"GPU",hair:"a human hair, for size",glass:"one glass thread"},
     stops:[
-      {name:"Your phone",title:"It starts with Send",say:"Now, step by step. Tap <b>Send</b>.",action:"Send ↑",
+      {name:"Your phone",title:"It starts with Send",say:"Tap the blue <b>Send</b> button.",action:"Send ↑",
        beats:[["Words become numbers",["Computers only understand <b>1s and 0s</b>.","Every letter becomes <b>eight</b> of them.",["216","ones and zeros for one short question"]]],
               ["Locked with a key",["Your phone <b>scrambles</b> the numbers.","On the way, nobody can read them.","Sealed. <b>Follow the envelope.</b>"]]]},
       {name:"Through the air",title:"No wire attached",say:"So how does your message get out?",action:"Send it out",
@@ -63,7 +62,6 @@ export const appCopy={
     kicker:(i,n,name)=>`Parada ${i} de ${n} · ${name}`,
     next:"Siguiente parada →",nextStep:"Sigue",back:"Volver un paso",
     cont:"Continuar",again:"Otra vez",stepOf:(i,n)=>`Paso ${i} de ${n}`,ready:l=>`Sin prisa. Toca “${l}” cuando quieras seguir.`,slow:"Lento",fast:"Rápido",auto:"Auto",autoOn:"Modo automático activo: avanza solo. Toca para pausar.",autoOff:"Modo automático: que avance solo",
-    intro:["De Enviar a la respuesta","Tu pregunta va a una IA y regresa.",["20 segundos","de Enviar a la respuesta."]],
     replay:"Ver todo el viaje ▸",restart:"↺ Empezar de nuevo",
     replayDone:"Esa fue la velocidad real: cerca de <b>un segundo</b>. Ningún país ni empresa es dueño de internet. Son miles de millones de máquinas que acuerdan pasar el mensaje de un desconocido.",
     promptLines:["La capital de","Francia es..."],prompt:"La capital de Francia es",
@@ -71,7 +69,7 @@ export const appCopy={
     labels:{phoneTitle:"ChatGPT",ask:"Pregunta lo que quieras",message:"Mensaje",wifi:"Router Wi-Fi",tower:"Antena celular",router:"router",fiber:"cable de fibra de vidrio",sea:"Fondo del océano|13,000 pies de profundidad",speed:"450 millones de mph",you:"Tú",far:"Centro de datos de la IA",dcs:"Centro de datos",to:"Para",
       dc:"CENTRO DE DATOS",dnsTitle:"El directorio de internet",guard:"Control de seguridad",checking:"Revisando…",ok:"✓ Eres tú",director:"Director de tráfico",busy:"ocupado",free:"libre",gpu:"GPU",hair:"un cabello, para comparar",glass:"un hilo de vidrio"},
     stops:[
-      {name:"Tu teléfono",title:"Todo empieza con Enviar",say:"Ahora, paso a paso. Toca <b>Enviar</b>.",action:"Enviar ↑",
+      {name:"Tu teléfono",title:"Todo empieza con Enviar",say:"Toca el botón azul de <b>Enviar</b>.",action:"Enviar ↑",
        beats:[["Las palabras se vuelven números",["Las computadoras solo entienden <b>unos y ceros</b>.","Cada letra se convierte en <b>ocho</b> de ellos.",["216","unos y ceros para una pregunta corta"]]],
               ["Cerrado con llave",["Tu teléfono <b>mezcla</b> los números.","En el camino, nadie puede leerlos.","Sellado. <b>Sigue el sobre.</b>"]]]},
       {name:"Por el aire",title:"Sin ningún cable",say:"Entonces, ¿cómo sale tu mensaje?",action:"Enviarlo",
