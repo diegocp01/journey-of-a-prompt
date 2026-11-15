@@ -358,9 +358,9 @@ function drawPhone(g,w,h,photo=false,press=0){
   /* status bar: time, pill cut-out, signal, Wi-Fi, battery */
   g.textBaseline="middle";g.textAlign="left";g.fillStyle=ink;g.font=`700 31px ${FONT}`;g.fillText("9:41",62,64);
   if(!photo){
-  rr(g,w/2-78,40,156,46,23,"#000");
-  /* front camera lens inside the island */
-  {const cx=w/2+52,cy=63,gr=g.createRadialGradient(cx-3,cy-3,1,cx,cy,11);gr.addColorStop(0,"#3a4d7a");gr.addColorStop(.5,"#141b30");gr.addColorStop(1,"#05070d");g.fillStyle=gr;g.beginPath();g.arc(cx,cy,11,0,7);g.fill();g.fillStyle="rgba(140,170,255,.55)";g.beginPath();g.arc(cx-3.5,cy-3.5,2.6,0,7);g.fill();}
+    rr(g,w/2-78,40,156,46,23,"#000");
+    /* front camera lens inside the island */
+    {const cx=w/2+52,cy=63,gr=g.createRadialGradient(cx-3,cy-3,1,cx,cy,11);gr.addColorStop(0,"#3a4d7a");gr.addColorStop(.5,"#141b30");gr.addColorStop(1,"#05070d");g.fillStyle=gr;g.beginPath();g.arc(cx,cy,11,0,7);g.fill();g.fillStyle="rgba(140,170,255,.55)";g.beginPath();g.arc(cx-3.5,cy-3.5,2.6,0,7);g.fill();}
   }
   [0,1,2,3].forEach(i=>g.fillRect(372+i*11,74-10-i*5,7,10+i*5));
   g.lineWidth=5;g.lineCap="round";g.strokeStyle=ink;

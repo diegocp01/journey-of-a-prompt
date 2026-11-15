@@ -32,8 +32,8 @@ An internet connection is needed: the 3D engine, textures and models are loaded 
 - `index.html`: the page and its buttons.
 - `css/styles.css`: the look of the clock, captions and buttons.
 - `js/copy.js`: all on-screen text, in English and Spanish.
-- `js/phone-grip.js` and `assets/phone-grip.png`: the photo of the hand holding the phone on screen 1, with the live screen drawn into it.
-- `js/hand.js`: the 3D hand, used if the photo cannot load.
+- `js/phone-grip.js`: the photographed grip and interactive phone display.
+- `js/hand.js`: the 3D fallback for the phone grip.
 - `js/main.js`: the 3D world, the story steps and the controls.
 
 ## Controls
@@ -57,5 +57,6 @@ This is a teaching model, not a network diagram. A few things are simplified on 
 
 - [three.js](https://threejs.org) (MIT), loaded from jsDelivr, including the Earth textures from its examples.
 - Textures and 3D models from [Poly Haven](https://polyhaven.com) (CC0).
-- Hand model from [Babylon.js Assets](https://github.com/BabylonJS/Assets) (CC BY 4.0), loaded from assets.babylonjs.com, with skin tones, nails and smoothing added here.
+- The main phone and hand image was created with ImageGen.
+- Fallback hand model from [Babylon.js Assets](https://github.com/BabylonJS/Assets) (CC BY 4.0), loaded from assets.babylonjs.com, with skin tones, nails and smoothing added here.
 - Look and pacing inspired by Charles Zheng's reel about a photo crossing the Pacific in 200 ms.
