@@ -9,6 +9,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {Water} from 'three/addons/objects/Water.js';
 import {appCopy} from './copy.js';
 import {createHand,HP} from './hand.js';
+import {createPhotoGrip} from './phone-grip.js';
 
 /* =====================================================================
    COPY
@@ -345,17 +346,22 @@ const seaY=x=>(x<=130||x>=250)?0:-14*Math.pow(Math.sin(Math.PI*(x-130)/120),.7);
 /* a soft diagonal reflection, as on real glass */
 function glare(g,w,h){const gr=g.createLinearGradient(w*.1,0,w*.95,h*.55);gr.addColorStop(0,"rgba(255,255,255,0)");gr.addColorStop(.46,"rgba(255,255,255,0)");gr.addColorStop(.5,"rgba(190,215,255,.16)");gr.addColorStop(.62,"rgba(190,215,255,.05)");gr.addColorStop(.63,"rgba(255,255,255,0)");g.fillStyle=gr;g.fillRect(0,0,w,h);}
 let phoneState={mode:"draft",bits:null,words:[]};
-const phoneTex=canvasTex(540,1166,(g,w,h)=>{
+function drawPhone(g,w,h,photo=false,press=0){
   const s=phoneState,lines=s.cipher||s.bits||ui.promptLines,L=ui.labels,ink="#0d0d0d";
   /* black glass with a rounded display, like a modern phone */
-  g.fillStyle="#000";g.fillRect(0,0,w,h);
-  g.save();g.beginPath();g.roundRect(15,15,w-30,h-30,64);g.clip();
-  g.fillStyle="#fff";g.fillRect(0,0,w,h);
+  g.save();
+  if(!photo){
+    g.fillStyle="#000";g.fillRect(0,0,w,h);
+    g.beginPath();g.roundRect(15,15,w-30,h-30,64);g.clip();
+    g.fillStyle="#fff";g.fillRect(0,0,w,h);
+  }
   /* status bar: time, pill cut-out, signal, Wi-Fi, battery */
   g.textBaseline="middle";g.textAlign="left";g.fillStyle=ink;g.font=`700 31px ${FONT}`;g.fillText("9:41",62,64);
-  rr(g,w/2-78,40,156,46,23,"#000");
-  /* front camera lens inside the island */
-  {const cx=w/2+52,cy=63,gr=g.createRadialGradient(cx-3,cy-3,1,cx,cy,11);gr.addColorStop(0,"#3a4d7a");gr.addColorStop(.5,"#141b30");gr.addColorStop(1,"#05070d");g.fillStyle=gr;g.beginPath();g.arc(cx,cy,11,0,7);g.fill();g.fillStyle="rgba(140,170,255,.55)";g.beginPath();g.arc(cx-3.5,cy-3.5,2.6,0,7);g.fill();}
+  if(!photo){
+    rr(g,w/2-78,40,156,46,23,"#000");
+    /* front camera lens inside the island */
+    {const cx=w/2+52,cy=63,gr=g.createRadialGradient(cx-3,cy-3,1,cx,cy,11);gr.addColorStop(0,"#3a4d7a");gr.addColorStop(.5,"#141b30");gr.addColorStop(1,"#05070d");g.fillStyle=gr;g.beginPath();g.arc(cx,cy,11,0,7);g.fill();g.fillStyle="rgba(140,170,255,.55)";g.beginPath();g.arc(cx-3.5,cy-3.5,2.6,0,7);g.fill();}
+  }
   [0,1,2,3].forEach(i=>g.fillRect(372+i*11,74-10-i*5,7,10+i*5));
   g.lineWidth=5;g.lineCap="round";g.strokeStyle=ink;
   [9,19,29].forEach(r=>{g.beginPath();g.arc(435,76,r,-Math.PI*.75,-Math.PI*.25);g.stroke();});
@@ -369,12 +375,16 @@ const phoneTex=canvasTex(540,1166,(g,w,h)=>{
   g.fillStyle="#111";g.beginPath();g.roundRect(w/2-92,h-40,184,9,5);g.fill();
   if(s.mode==="draft"){
     g.fillStyle="#9a9a9a";g.font=`600 40px ${FONT}`;g.fillText(L.ask,w/2,h*.42);
-    rr(g,30,h-290,w-60,200,50,"#f4f4f4","#e2e2e2");
-    g.fillStyle=ink;g.textAlign="left";g.font=`600 42px ${FONT}`;g.fillText(lines[0],64,h-220);g.fillText(lines[1],64,h-162);
-    g.beginPath();g.arc(w-104,h-190,52,0,7);g.fillStyle="#0a84ff";g.fill();
+    const sendX=photo?378:w-104,sendY=h-190;
+    rr(g,30,h-290,w-60,200,50,photo?"rgba(255,255,255,.14)":"#f4f4f4",photo?"rgba(75,83,96,.15)":"#e2e2e2");
+    g.fillStyle=ink;g.textAlign="left";g.font=`600 42px ${FONT}`;
+    g.fillText(lines[0],57,h-220,sendX-122);g.fillText(lines[1],57,h-162,sendX-122);
+    g.save();g.translate(sendX,sendY);g.scale(1-.09*press,1-.09*press);
+    g.beginPath();g.arc(0,0,52,0,Math.PI*2);g.fillStyle=press>.5?"#0069d5":"#0a84ff";g.fill();
     g.strokeStyle="#fff";g.lineWidth=11;g.lineCap="round";g.lineJoin="round";
-    g.beginPath();g.moveTo(w-104,h-164);g.lineTo(w-104,h-216);g.moveTo(w-129,h-192);g.lineTo(w-104,h-217);g.lineTo(w-79,h-192);g.stroke();
-    glare(g,w,h);g.restore();return;
+    g.beginPath();g.moveTo(0,26);g.lineTo(0,-26);g.moveTo(-25,-2);g.lineTo(0,-27);g.lineTo(25,-2);g.stroke();g.restore();
+    if(!photo) glare(g,w,h);
+    g.restore();return;
   }
   rr(g,w-30-410,214,410,156,48,s.cipher?"#1c2540":"#0a84ff");
   if(s.cipher){g.font="54px sans-serif";g.fillText("🔒",w-30-410-44,294);}
@@ -388,10 +398,21 @@ const phoneTex=canvasTex(540,1166,(g,w,h)=>{
     if(!s.words.length) out[0]="…";
     g.fillStyle=ink;out.forEach((l,i)=>g.fillText(l,44,440+i*58));
   }
-  glare(g,w,h);g.restore();
-});
-let phoneScreen,hand=null;
-const setThumb=p=>{if(hand) hand.pose(p);};
+  if(!photo) glare(g,w,h);
+  g.restore();
+}
+const phoneTex=canvasTex(540,1166,drawPhone);
+let photoGrip,hand;
+let thumbPress=0;
+function redrawPhone(){
+  if(photoGrip?.ready) photoGrip.redraw(thumbPress);
+  else phoneTex.redraw();
+}
+function setThumb(p){
+  thumbPress=p;
+  if(photoGrip?.ready) photoGrip.redraw(p);
+  else hand?.pose(p);
+}
 {
   const wall=pbr(M(0xd8d0c2,{r:.95}),"beige_wall_001",{tint:0xe6ddcf}),white=M(0xcfcbc2,{r:.9,env:.1});
   const floorM=pbr(M(0x8a6748,{r:.85,env:.15}),"laminate_floor_02"),wood=pbr(M(0x6e4a2f,{r:.82,env:.15}),"wood_table_001");
@@ -442,20 +463,27 @@ const setThumb=p=>{if(hand) hand.pose(p);};
   /* phone */
   const outer=new THREE.Group();outer.position.set(1.5,.88,0);outer.rotation.y=-Math.PI/2;scene.add(outer);
   const inner=new THREE.Group();inner.position.y=.08;inner.rotation.x=-.2;outer.add(inner);
+  const phoneBody=new THREE.Group();inner.add(phoneBody);
   const slabShape=(W,H,R)=>{const sh=new THREE.Shape(),x=W/2,y=H/2;sh.moveTo(-x+R,-y);sh.lineTo(x-R,-y);sh.absarc(x-R,-y+R,R,-Math.PI/2,0);sh.lineTo(x,y-R);sh.absarc(x-R,y-R,R,0,Math.PI/2);sh.lineTo(-x+R,y);sh.absarc(-x+R,y-R,R,Math.PI/2,Math.PI);sh.lineTo(-x,-y+R);sh.absarc(-x+R,-y+R,R,Math.PI,Math.PI*1.5);return sh;};
   const frame=M(0xc4c2bd,{m:1,r:.16,env:1.7}); /* polished steel band */
   const bodyG=new THREE.ExtrudeGeometry(slabShape(.0738,.156,.0118),{depth:.0066,bevelEnabled:true,bevelThickness:.0014,bevelSize:.0012,bevelSegments:8,curveSegments:28});bodyG.translate(0,0,-.0033);
-  const body=new THREE.Mesh(bodyG,frame);body.castShadow=true;inner.add(body);
-  [[.0379,.014,.036],[-.0379,.044,.051],[-.0379,.022,.036],[-.0379,.004,.018]].forEach(([x,y0,y1])=>bx(x-.0006,x+.0006,y0,y1,-.0015,.0015,frame,{parent:inner,cast:false}));
+  const body=new THREE.Mesh(bodyG,frame);body.castShadow=true;phoneBody.add(body);
+  [[.0379,.014,.036],[-.0379,.044,.051],[-.0379,.022,.036],[-.0379,.004,.018]].forEach(([x,y0,y1])=>bx(x-.0006,x+.0006,y0,y1,-.0015,.0015,frame,{parent:phoneBody,cast:false}));
   const SW=.0722,SH=.1544,scrG=new THREE.ShapeGeometry(slabShape(SW,SH,.0106),20),uv=scrG.attributes.uv,ps=scrG.attributes.position;
   for(let i=0;i<uv.count;i++) uv.setXY(i,ps.getX(i)/SW+.5,ps.getY(i)/SH+.5);
-  phoneScreen=new THREE.Mesh(scrG,new THREE.MeshBasicMaterial({map:phoneTex.tex,color:0xf0f0f0,toneMapped:false}));
-  phoneScreen.position.z=.00485;inner.add(phoneScreen);
+  const phoneScreen=new THREE.Mesh(scrG,new THREE.MeshBasicMaterial({map:phoneTex.tex,color:0xf0f0f0,toneMapped:false}));
+  phoneScreen.position.z=.00485;phoneBody.add(phoneScreen);
   /* charging port and speaker holes on the bottom edge */
-  bx(-.0045,.0045,-.0792,-.0786,-.0012,.0012,dark,{parent:inner,cast:false});
-  [-.022,-.018,-.014,.014,.018,.022].forEach(x=>bx(x-.0008,x+.0008,-.0792,-.0786,-.0008,.0008,dark,{parent:inner,cast:false}));
-  /* a right hand holds the phone and taps Send (see hand.js) */
-  hand=createHand(inner);
+  bx(-.0045,.0045,-.0792,-.0786,-.0012,.0012,dark,{parent:phoneBody,cast:false});
+  [-.022,-.018,-.014,.014,.018,.022].forEach(x=>bx(x-.0008,x+.0008,-.0792,-.0786,-.0008,.0008,dark,{parent:phoneBody,cast:false}));
+  photoGrip=createPhotoGrip(inner,drawPhone,{onReady:()=>{
+    phoneBody.visible=false;
+    redrawPhone();
+  },onError:()=>{
+    hand=createHand(phoneBody);
+    hand.pose(thumbPress);
+  }});
+  // Keep the existing screen geometry as the tap target for both renderings.
   tap(phoneScreen,()=>(current===0||current===HOME)&&!done&&!busy,()=>mainAction());
 }
 
@@ -1166,19 +1194,20 @@ function flash(cb){const f=$("fade");f.style.background="#e9e2ff";f.style.opacit
    STOP LOGIC
    ===================================================================== */
 function resetStop(i){
-  if(i===0){phoneState={mode:"draft",bits:null,cipher:null,words:[]};phoneTex.redraw();}
+  if(i===0||i===HOME) thumbPress=0;
+  if(i===0){phoneState={mode:"draft",bits:null,cipher:null,words:[]};redrawPhone();}
   if(i===1){towerCab.m.emissiveIntensity=.6;towerCab.l.intensity=0;}
   if(i===2) packets.forEach(p=>{p.visible=false;p.scale.setScalar(1);});
   if(i===3){
     secState="idle";secTex.redraw();laser.visible=false;greenMats.forEach(m=>m.emissiveIntensity=.4);archStrips.emissive.set(0x35d6ff);
     chips.forEach(c=>c.material.emissiveIntensity=0);nums.forEach(n=>n.visible=false);
   }
-  if(i===HOME){phoneState={mode:"answer",bits:null,words:[]};phoneTex.redraw();}
+  if(i===HOME){phoneState={mode:"answer",bits:null,words:[]};redrawPhone();}
 }
 const bits=()=>Array.from({length:11},()=>Math.random()<.5?"0":"1").join("");
 const actions=[
   ()=>{ /* send: the words lift off the phone, become numbers, get locked, fold into the envelope */
-    phoneState.mode="sent";phoneTex.redraw();
+    phoneState.mode="sent";redrawPhone();
     travel({cam:[[1.3,1.03,.015]],look:[1.5,.998,.005],dur:.9,follow:false});
     const txt=ui.promptLines.join(" "),N=txt.length;
     stage={mode:"bits",text:txt,lines:ui.promptLines,n:0,ghost:1,scr:0,lock:0,seed:0};stageScale=1;stageTex.redraw();
@@ -1256,7 +1285,7 @@ const actions=[
     const W=sp.scale.x,H=sp.scale.y;sp.scale.set(.001,.001,1);sp.position.copy(a);scene.add(sp);temps.push(sp);
     tween(.9,.5,p=>sp.scale.set(W*Math.max(.001,p),H*Math.max(.001,p),1),outBack);
     tween(2.7,.5,p=>{sp.position.lerpVectors(a,b,p);sp.scale.set(W*(1-.6*p),H*(1-.6*p),1);},ease);
-    at(3.2,()=>{scene.remove(sp);phoneState.words=[...ui.answer];phoneTex.redraw();});
+    at(3.2,()=>{scene.remove(sp);phoneState.words=[...ui.answer];redrawPhone();});
     return 4.2;
   }
 ];
@@ -1338,12 +1367,12 @@ let liveTimer=null,introStep=-1;
 function intro(){
   clearTasks();
   busy=true;introStep=0;realSpeed=true;showTimer(0);
-  phoneState={mode:"draft",bits:null,cipher:null,words:[]};phoneTex.redraw();renderHUD();
+  phoneState={mode:"draft",bits:null,cipher:null,words:[]};redrawPhone();renderHUD();
   tween(1.2,.35,p=>setThumb(p),ease);
-  at(1.55,()=>{phoneState={mode:"answer",bits:null,cipher:null,words:[]};phoneTex.redraw();});
+  at(1.55,()=>{phoneState={mode:"answer",bits:null,cipher:null,words:[]};redrawPhone();});
   tween(1.7,.4,p=>setThumb(1-p),ease);
   tween(1.55,4,p=>showTimer(20*p));
-  at(5.55,()=>{showTimer(20);phoneState.words=[...ui.answer];phoneTex.redraw();introStep=1;renderHUD();});
+  at(5.55,()=>{showTimer(20);phoneState.words=[...ui.answer];redrawPhone();introStep=1;renderHUD();});
   at(10,()=>{introStep=-1;realSpeed=false;busy=false;resetStop(0);setTimer(0);renderHUD();});
 }
 function back(){
@@ -1353,12 +1382,12 @@ function back(){
 function replay(){
   clearTasks();
   busy=true;realSpeed=true;renderHUD();
-  phoneState.words=[];phoneTex.redraw();
+  phoneState.words=[];redrawPhone();
   liveTimer=clock;
   const lin=t=>t*t*(3-2*t);
   ride(0,1,.45,lin);
   at(.6,()=>ride(1,0,.4,lin));
-  at(1,()=>{liveTimer=null;showTimer(20);phoneState.words=[...ui.answer];phoneTex.redraw();});
+  at(1,()=>{liveTimer=null;showTimer(20);phoneState.words=[...ui.answer];redrawPhone();});
   travel({delay:1,cam:[POSE[HOME].cam],look:POSE[HOME].look,dur:.6,follow:false});
   at(2,()=>{realSpeed=false;replayed=true;finale();});
 }
@@ -1424,7 +1453,7 @@ function applyLanguage(){
   $("dots").innerHTML=ui.stops.map((s,i)=>`<button class="dot" type="button" data-stop="${i}" title="${i+1}. ${s.name}" aria-label="${ui.kicker(i+1,ui.stops.length,s.name)}"></button>`).join("");
   paintSpeed();
   labels.forEach(l=>l.sp.userData.set(ui.labels[l.key]));
-  phoneTex.redraw();dnsTex.redraw();secTex.redraw();signTex.redraw();
+  redrawPhone();dnsTex.redraw();secTex.redraw();signTex.redraw();
   rebuildWords();
 }
 $("mainBtn").addEventListener("click",mainAction);
@@ -1604,4 +1633,4 @@ placeAt(0);
 renderHUD();
 frame();
 intro();
-window.__journey={setThumb:p=>setThumb(p),HP,hand:()=>hand.rig(),showGlobe,hideGlobe,renderer,composer,sky:()=>skyInfo,modelInfo,placed,camBase,lookGoal,lookCur,scene,THREE,go,mainAction,setSub,tick:(sec)=>{for(let t=0;t<sec;t+=.04) step(.04,false);step(.04,true);},state:()=>({auto,capDur,item,fin,globeOn,current,sub,done,busy,replayed,beat,waiting,stepping,gates:gates.length,clock,cam:camBase.toArray(),hero:hero.position.toArray()})};
+window.__journey={setThumb:p=>setThumb(p),HP,hand:()=>hand?.rig()??photoGrip,showGlobe,hideGlobe,renderer,composer,sky:()=>skyInfo,modelInfo,placed,camBase,lookGoal,lookCur,scene,THREE,go,mainAction,setSub,tick:(sec)=>{for(let t=0;t<sec;t+=.04) step(.04,false);step(.04,true);},state:()=>({auto,capDur,item,fin,globeOn,current,sub,done,busy,replayed,beat,waiting,stepping,gates:gates.length,clock,cam:camBase.toArray(),hero:hero.position.toArray()})};
