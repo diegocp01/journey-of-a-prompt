@@ -1294,7 +1294,7 @@ function go(i,cut){
   if(i<0||i>HOME) return;
   const cinematic=!cut&&i===current+1,wasGlobe=globeOn;
   clearTasks();
-  done=false;replayed=false;subNote="";sub=0;busy=true;beat=-1;item=0;fin=0;boost=1.5;introStep=-1;
+  done=false;replayed=false;subNote="";sub=0;busy=true;beat=-1;item=0;fin=0;boost=1.5;
   current=i;
   setTimer(T[i]);renderHUD();
   if(!cinematic){
@@ -1351,7 +1351,7 @@ function mainAction(){
     if(current===0){busy=true;renderHUD();tween(0,.35,p=>setThumb(p),ease);at(.55,runAction);tween(.6,.4,p=>setThumb(1-p),ease);return;}
     runAction();return;
   }
-  if(current===HOME){if(replayed){go(0,true);at(.5,intro);}else replay();return;}
+  if(current===HOME){replayed?go(0,true):replay();return;}
   go(current+1);
 }
 /* the closing: one second, then the 1858 comparison, then who owns it all */
@@ -1361,20 +1361,7 @@ function finale(){
   at(2,()=>renderHUD());
   [3.4,7.2].forEach((t,j)=>{softs.push(clock+t);at(t,()=>{fin=j+1;if(j) busy=false;renderHUD();});});
 }
-let liveTimer=null,introStep=-1;
-/* screen 1 opens with the whole thing at a glance: Send, the clock runs to 20 seconds, the answer comes back.
-   Then the phone resets and the viewer follows the same trip step by step. */
-function intro(){
-  clearTasks();
-  busy=true;introStep=0;realSpeed=true;showTimer(0);
-  phoneState={mode:"draft",bits:null,cipher:null,words:[]};redrawPhone();renderHUD();
-  tween(1.2,.35,p=>setThumb(p),ease);
-  at(1.55,()=>{phoneState={mode:"answer",bits:null,cipher:null,words:[]};redrawPhone();});
-  tween(1.7,.4,p=>setThumb(1-p),ease);
-  tween(1.55,4,p=>showTimer(20*p));
-  at(5.55,()=>{showTimer(20);phoneState.words=[...ui.answer];redrawPhone();introStep=1;renderHUD();});
-  at(10,()=>{introStep=-1;realSpeed=false;busy=false;resetStop(0);setTimer(0);renderHUD();});
-}
+let liveTimer=null;
 function back(){
   if(current===MODEL){sub>0?setSub(sub-1):go(3,true);return;}
   go(beat>=0?current:current-1,true);
@@ -1424,7 +1411,6 @@ function renderHUD(){
     body=done&&stop.after?itemHTML(stop.after,"note"):itemHTML(b[1][Math.min(item,b[1].length-1)]);
     if(stop.beats.length>1) ticks=stop.beats.map((x,i)=>`<i class="${i<=beat?"on":""}"></i>`).join("");
   }
-  else if(current===0&&introStep>=0){title=ui.intro[0];body=itemHTML(ui.intro[1+introStep]);}
   else{title=stop.title;body=itemHTML(stop.say);}
   const html=`${ticks?`<div class="beats">${ticks}</div>`:""}<h2>${title}</h2>${body}`;
   if(html!==capKey){
@@ -1632,5 +1618,4 @@ applyLanguage();
 placeAt(0);
 renderHUD();
 frame();
-intro();
 window.__journey={setThumb:p=>setThumb(p),HP,hand:()=>hand?.rig()??photoGrip,showGlobe,hideGlobe,renderer,composer,sky:()=>skyInfo,modelInfo,placed,camBase,lookGoal,lookCur,scene,THREE,go,mainAction,setSub,tick:(sec)=>{for(let t=0;t<sec;t+=.04) step(.04,false);step(.04,true);},state:()=>({auto,capDur,item,fin,globeOn,current,sub,done,busy,replayed,beat,waiting,stepping,gates:gates.length,clock,cam:camBase.toArray(),hero:hero.position.toArray()})};
