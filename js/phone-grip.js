@@ -105,6 +105,7 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
   const plate = new Image();
   let underPatch = null;   // what is under the thumb once it moves: plain glass and the phone's frame
   let shadow = null;       // the thumb's outline, for its shadow on the glass
+  let handPatch = null;    // skin of the hand behind the thumb's upper edge, shown once the thumb lifts away from it
 
   const blank = () => {
     const c = document.createElement('canvas');
@@ -136,7 +137,15 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
       let a;
       if (X < FRAME_X) {
         /* over the glass and the frame: skin is clearly redder than grey glass and brighter than dark steel */
-        a = Math.min(1, Math.max(0, (r - b - 16) / 18)) * Math.min(1, Math.max(0, (r - 95) / 30));
+        const red = Math.min(1, Math.max(0, (r - b - 18) / 14));
+        if (X < DISPLAY.x + DISPLAY.width - 4) {
+          /* over the glass: skin is redder than grey glass, and so is not the grey contact shadow around it */
+          a = Math.min(1, Math.max(0, red * 1.3 - .3));
+        } else {
+          /* over the steel frame: skin is also brighter than the steel, and only the stretch the thumb crosses counts */
+          a = red * Math.min(1, Math.max(0, (r - 112) / 30));
+          if (Y < 644 + (X - 527) * .36) a = 0;
+        }
         /* but not the palm showing below the phone */
         if (Y > (X < 520 ? 772 : 772 + (X - 520) * .5)) a = 0;
         if (a === 0 && X < DISPLAY.x + DISPLAY.width - 12 && Y < DISPLAY.y + DISPLAY.height - 30) { sr += r; sg += gr; sb += b; n++; }
@@ -180,6 +189,23 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
       }
       return [0, 0, 0, 0];
     });
+
+    /* right of the frame the lifted thumb uncovers a sliver of its own photographed upper edge.
+       Cover that sliver with the hand's skin from just above it. */
+    const strip = blank(), tg = strip.getContext('2d', {willReadFrequently: true});
+    tg.filter = 'blur(3px)';
+    tg.beginPath();
+    [[562, 642], [612, 664], [662, 690], [664, 714], [612, 696], [562, 680]].forEach(([x, y], i) => tg[i ? 'lineTo' : 'moveTo'](x - LAYER.x, y - LAYER.y));
+    tg.closePath();
+    tg.fill();
+    const stripA = tg.getImageData(0, 0, W, H).data;
+    handPatch = blank();
+    put(handPatch, k => {
+      const x = k % W, y = (k - x) / W;
+      if (x < 562 - LAYER.x) return [0, 0, 0, 0];
+      const sx = Math.min(W - 1, x + 10), sy = Math.max(0, y - 28), q = (sy * W + sx) * 4;
+      return [src[q], src[q + 1], src[q + 2], stripA[k * 4 + 3]];
+    });
   }
 
   function redraw(press) {
@@ -190,6 +216,9 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     context.drawImage(plate, 0, 0);
     /* cover the photographed thumb with what is under it */
     context.drawImage(underPatch, LAYER.x, LAYER.y);
+    context.globalAlpha = Math.min(1, lift * 3);
+    context.drawImage(handPatch, LAYER.x, LAYER.y);
+    context.globalAlpha = 1;
     context.save();
     context.clip(displayClip);
     /* the screen: chat, prompt and the Send button */
@@ -200,9 +229,9 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     context.restore();
     /* the thumb's shadow on the glass: tight under the pad when pressing, softer and off to one side when lifted */
     const angle = Math.atan2(TIP.y - BASE.y, TIP.x - BASE.x);
-    context.globalAlpha = .32 - .12 * lift;
-    context.filter = `blur(${3 + 7 * lift}px)`;
-    context.translate(BASE.x - 12 * lift, BASE.y + 3 + 13 * lift);
+    context.globalAlpha = .26 - .16 * lift;
+    context.filter = `blur(${3 + 9 * lift}px)`;
+    context.translate(BASE.x - 5 * lift, BASE.y + 2 + 7 * lift);
     context.rotate(-SWING * lift);
     context.rotate(angle);
     context.scale(1 - .1 * lift, 1);
