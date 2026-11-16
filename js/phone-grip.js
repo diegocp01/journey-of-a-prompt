@@ -105,6 +105,7 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
   const plate = new Image();
   let underPatch = null;   // what is under the thumb once it moves: plain glass and the phone's frame
   let shadow = null;       // the thumb's outline, for its shadow on the glass
+  let photoThumb = null;   // the thumb exactly as photographed, soft edge included, for when it is down on the glass
   let handPatch = null;    // skin of the hand behind the thumb's upper edge, shown once the thumb lifts away from it
 
   const blank = () => {
@@ -130,21 +131,24 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     const polyA = pg.getImageData(0, 0, W, H).data;
 
     const dx = TIP.x - BASE.x, dy = TIP.y - BASE.y, len = Math.hypot(dx, dy);
-    const mask = new Uint8ClampedArray(W * H);
+    const mask = new Uint8ClampedArray(W * H), softMask = new Uint8ClampedArray(W * H);
     let sr = 0, sg = 0, sb = 0, n = 0;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = (y * W + x) * 4, r = src[i], gr = src[i + 1], b = src[i + 2], X = LAYER.x + x, Y = LAYER.y + y;
-      let a;
+      let a, soft = -1;
       if (X < FRAME_X) {
         /* over the glass and the frame: skin is clearly redder than grey glass and brighter than dark steel */
         const red = Math.min(1, Math.max(0, (r - b - 18) / 14));
         if (X < DISPLAY.x + DISPLAY.width - 4) {
           /* over the glass: skin is redder than grey glass, and so is not the grey contact shadow around it */
-          a = Math.min(1, Math.max(0, red * 1.3 - .3));
+          soft = red;
+          a = Math.min(1, Math.max(0, red * 1.15 - .15));
         } else {
           /* over the steel frame: skin is also brighter than the steel, and only the stretch the thumb crosses counts */
           a = red * Math.min(1, Math.max(0, (r - 112) / 30));
           if (Y < 644 + (X - 527) * .36) a = 0;
+          /* well inside that stretch it is all thumb, even where the skin is in shadow */
+          else if (Y > 650 + (X - 527) * .36 && Y < 766 + (X - 520) * .5) a = 1;
         }
         /* but not the palm showing below the phone */
         if (Y > (X < 520 ? 772 : 772 + (X - 520) * .5)) a = 0;
@@ -154,6 +158,7 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
       const along = ((X - BASE.x) * dx + (Y - BASE.y) * dy) / len;
       a *= Math.min(1, Math.max(0, (along + 46) / 70));
       mask[y * W + x] = Math.round(a * 255 * (src[i + 3] / 255));
+      softMask[y * W + x] = soft < 0 ? mask[y * W + x] : Math.round(soft * Math.min(1, Math.max(0, (along + 46) / 70)) * 255);
     }
     const put = (canvasEl, rgba) => {
       const c = canvasEl.getContext('2d'), img = c.createImageData(W, H);
@@ -165,6 +170,8 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     };
     /* the thumb on its own layer */
     put(thumbCanvas, k => [src[k * 4], src[k * 4 + 1], src[k * 4 + 2], mask[k]]);
+    photoThumb = blank();
+    put(photoThumb, k => [src[k * 4], src[k * 4 + 1], src[k * 4 + 2], softMask[k]]);
     thumbTexture.needsUpdate = true;
     /* its outline, dark, for the shadow */
     shadow = blank();
@@ -174,15 +181,40 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
        plain glass over the screen, and the phone's own frame continued down from just above the thumb */
     const glass = [Math.round(sr / n), Math.round(sg / n), Math.round(sb / n)];
     const wide = blank(), wg = wide.getContext('2d', {willReadFrequently: true});
-    wg.filter = 'blur(4px)';
-    for (const [ox, oy] of [[0, 0], [7, 0], [-7, 0], [0, 7], [0, -7], [5, 5], [-5, 5], [5, -5], [-5, -5]]) wg.drawImage(shadow, ox, oy);
+    /* the patch reaches well past the thumb and fades out softly, so it also clears the photo's own wide,
+       soft shadow around the thumb and leaves no edge to see */
+    wg.filter = 'blur(9px)';
+    for (const [ox, oy] of [[0, 0], [16, 0], [-16, 0], [0, 16], [0, -16], [11, 11], [-11, 11], [11, -11], [-11, -11]]) wg.drawImage(shadow, ox, oy);
     const wideA = wg.getImageData(0, 0, W, H).data;
     const frameLeft = DISPLAY.x + DISPLAY.width - 4 - LAYER.x, frameRight = FRAME_X - 5 - LAYER.x;
     const cleanTop = 598 - LAYER.y, cleanRows = 34, frameTo = 752 - LAYER.y;
+    /* the glass is not one flat colour: it shades from top to bottom. So each row of the patch takes the colour
+       of the real glass just to the left of the thumb on that same row, clear of the thumb's contact shadow. */
+    const rowGlass = [];
+    for (let y = 0; y < H; y++) {
+      let first = -1;
+      for (let x = 0; x < frameLeft; x++) if (wideA[(y * W + x) * 4 + 3] > 8) { first = x; break; }
+      if (first < 0) { rowGlass.push(null); continue; }
+      const from = Math.max(0, first - 10);
+      let r = 0, gr = 0, b = 0;
+      for (let x = from; x < from + 8; x++) { const q = (y * W + x) * 4; r += src[q]; gr += src[q + 1]; b += src[q + 2]; }
+      rowGlass.push([r / 8, gr / 8, b / 8]);
+    }
+    const glassAt = y => {
+      let r = 0, gr = 0, b = 0, m = 0;
+      for (let j = y - 4; j <= y + 4; j++) { const c = rowGlass[j]; if (c) { r += c[0]; gr += c[1]; b += c[2]; m++; } }
+      return m ? [Math.round(r / m), Math.round(gr / m), Math.round(b / m)] : glass;
+    };
+    const rowColour = Array.from({length: H}, (_, y) => glassAt(y));
     underPatch = blank();
     put(underPatch, k => {
       const x = k % W, y = (k - x) / W, a = Math.min(255, wideA[k * 4 + 3] * 1.6);
-      if (x < frameLeft) return [...glass, a];
+      if (x < frameLeft) {
+        /* glass only: stay inside the display, clear of its rounded bottom corner and the black border */
+        const X = LAYER.x + x, Y = LAYER.y + y, cx = DISPLAY.x + DISPLAY.width - 52, cy = DISPLAY.y + DISPLAY.height - 52;
+        if (Y > DISPLAY.y + DISPLAY.height - 2 || (X > cx && Y > cy && Math.hypot(X - cx, Y - cy) > 50)) return [0, 0, 0, 0];
+        return [...rowColour[y], a];
+      }
       if (x < frameRight && y < frameTo) {
         const s = ((cleanTop + ((y - cleanTop) % cleanRows + cleanRows) % cleanRows) * W + x) * 4;
         return [src[s], src[s + 1], src[s + 2], a];
@@ -212,11 +244,13 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     if (!mesh.visible) return;
     const lift = 1 - press;
     bend.uLift.value = lift;
+    /* While the thumb is down the photo is shown as it was taken, with its own shadow under the thumb.
+       The patches that stand in for what the thumb hid only come in as it lifts away. */
+    const t = Math.min(1, lift / .4), away = t * t * (3 - 2 * t);
     context.clearRect(0, 0, WIDTH, HEIGHT);
     context.drawImage(plate, 0, 0);
-    /* cover the photographed thumb with what is under it */
+    context.globalAlpha = away;
     context.drawImage(underPatch, LAYER.x, LAYER.y);
-    context.globalAlpha = Math.min(1, lift * 3);
     context.drawImage(handPatch, LAYER.x, LAYER.y);
     context.globalAlpha = 1;
     context.save();
@@ -227,10 +261,13 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     context.scale(DISPLAY.width / 540, DISPLAY.height / 1166);
     drawPhone(context, 540, 1166, true, press);
     context.restore();
-    /* the thumb's shadow on the glass: tight under the pad when pressing, softer and off to one side when lifted */
+    /* the photographed thumb back over the screen while it is down */
+    context.globalAlpha = 1 - away;
+    context.drawImage(photoThumb, LAYER.x, LAYER.y);
+    /* a faint, soft shadow under the lifted thumb */
     const angle = Math.atan2(TIP.y - BASE.y, TIP.x - BASE.x);
-    context.globalAlpha = .26 - .16 * lift;
-    context.filter = `blur(${3 + 9 * lift}px)`;
+    context.globalAlpha = away * (.2 - .08 * lift);
+    context.filter = `blur(${5 + 7 * lift}px)`;
     context.translate(BASE.x - 5 * lift, BASE.y + 2 + 7 * lift);
     context.rotate(-SWING * lift);
     context.rotate(angle);
