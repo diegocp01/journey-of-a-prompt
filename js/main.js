@@ -60,15 +60,18 @@ function runTasks(){
   }
   tasks=tasks.filter(t=>!t.dead);
 }
-/* the main button turns on as soon as the picture is done (openAt), even if lines of text are still to come:
-   a tap then shows the next line right away, or moves on when there is none left */
+/* the main button turns on as soon as the picture is done (openAt), even if lines of text are still to come.
+   Lines keep appearing on their own while you wait; a tap moves straight on to the next screen. */
 const lineLimit=()=>gates.length?gates[0].t:endAt;
 const pendingLine=()=>softs.length>0&&softs[0]<=lineLimit()+.002;
 function jumpTo(t){while(clock<t){clock=Math.min(t,clock+.05);runTasks();}}
+/* one tap always moves on to the next screen, even if some lines of text have not come up yet */
 function skipAhead(){
-  if(pendingLine()){const t=softs.shift();readUntil=0;jumpTo(t+.001);renderHUD();return;}
-  if(gates.length){jumpTo(gates[0].t);waiting=true;release();return;}
-  jumpTo(endAt+.001);if(!busy) mainAction();
+  readUntil=0;
+  if(gates.length){const t=gates[0].t;softs=softs.filter(x=>x>t);jumpTo(t);waiting=true;release();return;}
+  const wasStep=stepping;
+  softs=[];jumpTo(endAt+.001);
+  if(!busy&&wasStep) mainAction(); else renderHUD();
 }
 
 /* =====================================================================
@@ -1405,7 +1408,7 @@ function renderHUD(){
   let title,body,ticks="",labelTxt,act=false;
   const g=stepping&&gates[0],open=busy&&!waiting&&clock>=openAt,more=open&&pendingLine();
   if(g){labelTxt=(g.label||ui.cont)+" ▸";act=waiting||open;}
-  else if(more){labelTxt=ui.cont+" ▸";act=true;}
+  else if(more&&current===HOME&&replayed){labelTxt=ui.cont+" ▸";act=true;}
   else if(isModel) labelTxt=sub<4?`${ui.nextStep}: ${ui.subs[sub+1].name} →`:nextName(HOME);
   else if(!done&&!stepping){labelTxt=stop.action;act=true;}
   else if(current===HOME) labelTxt=replayed?ui.restart:ui.replay;
