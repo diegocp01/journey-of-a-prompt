@@ -379,8 +379,17 @@ function drawPhone(g,w,h,photo=false,press=0){
     rr(g,30,h-290,w-60,200,50,photo?"rgba(255,255,255,.14)":"#f4f4f4",photo?"rgba(75,83,96,.15)":"#e2e2e2");
     g.fillStyle=ink;g.textAlign="left";g.font=`600 42px ${FONT}`;
     g.fillText(lines[0],57,h-220,sendX-122);g.fillText(lines[1],57,h-162,sendX-122);
-    g.save();g.translate(sendX,sendY);g.scale(1-.09*press,1-.09*press);
-    g.beginPath();g.arc(0,0,52,0,Math.PI*2);g.fillStyle=press>.5?"#0069d5":"#0a84ff";g.fill();
+    /* tap feedback: as the thumb lands the button sinks and darkens, and a ripple spreads out from it */
+    const down=smooth(.7,1,press);
+    if(tapFx>0&&tapFx<1){
+      const q=1-Math.pow(1-tapFx,2);
+      g.save();g.translate(sendX,sendY);
+      g.beginPath();g.arc(0,0,52+92*q,0,Math.PI*2);g.fillStyle=`rgba(10,132,255,${(.2*(1-q)).toFixed(3)})`;g.fill();
+      g.beginPath();g.arc(0,0,52+92*q,0,Math.PI*2);g.strokeStyle=`rgba(10,132,255,${(.75*(1-q)).toFixed(3)})`;g.lineWidth=3+9*(1-q);g.stroke();
+      g.restore();
+    }
+    g.save();g.translate(sendX,sendY);g.scale(1-.13*down,1-.13*down);
+    g.beginPath();g.arc(0,0,52,0,Math.PI*2);g.fillStyle=`rgb(${Math.round(10-10*down)},${Math.round(132-62*down)},${Math.round(255-95*down)})`;g.fill();
     g.strokeStyle="#fff";g.lineWidth=11;g.lineCap="round";g.lineJoin="round";
     g.beginPath();g.moveTo(0,26);g.lineTo(0,-26);g.moveTo(-25,-2);g.lineTo(0,-27);g.lineTo(25,-2);g.stroke();g.restore();
     if(!photo) glare(g,w,h);
@@ -403,7 +412,7 @@ function drawPhone(g,w,h,photo=false,press=0){
 }
 const phoneTex=canvasTex(540,1166,drawPhone);
 let photoGrip,hand;
-let thumbPress=0;
+let thumbPress=0,tapFx=0;
 function redrawPhone(){
   if(photoGrip?.ready) photoGrip.redraw(thumbPress);
   else phoneTex.redraw();
@@ -1194,7 +1203,7 @@ function flash(cb){const f=$("fade");f.style.background="#e9e2ff";f.style.opacit
    STOP LOGIC
    ===================================================================== */
 function resetStop(i){
-  if(i===0||i===HOME) thumbPress=0;
+  if(i===0||i===HOME) thumbPress=tapFx=0;
   if(i===0){phoneState={mode:"draft",bits:null,cipher:null,words:[]};redrawPhone();}
   if(i===1){towerCab.m.emissiveIntensity=.6;towerCab.l.intensity=0;}
   if(i===2) packets.forEach(p=>{p.visible=false;p.scale.setScalar(1);});
@@ -1348,7 +1357,7 @@ function mainAction(){
   if(busy){if(clock>=openAt) skipAhead();return;}
   if(current===MODEL){sub<4?setSub(sub+1):go(HOME);return;}
   if(!done){
-    if(current===0){busy=true;renderHUD();tween(0,.4,p=>setThumb(p),ease);at(.7,runAction);tween(.75,.4,p=>setThumb(1-p),ease);return;}
+    if(current===0){busy=true;renderHUD();tween(0,.4,p=>setThumb(p),ease);tween(.3,.42,p=>{tapFx=p;redrawPhone();});at(.74,()=>{tapFx=0;runAction();});tween(.8,.4,p=>setThumb(1-p),ease);return;}
     runAction();return;
   }
   if(current===HOME){replayed?go(0,true):replay();return;}
@@ -1618,4 +1627,4 @@ applyLanguage();
 placeAt(0);
 renderHUD();
 frame();
-window.__journey={setThumb:p=>setThumb(p),HP,hand:()=>hand?.rig()??photoGrip,showGlobe,hideGlobe,renderer,composer,sky:()=>skyInfo,modelInfo,placed,camBase,lookGoal,lookCur,scene,THREE,go,mainAction,setSub,tick:(sec)=>{for(let t=0;t<sec;t+=.04) step(.04,false);step(.04,true);},state:()=>({auto,capDur,item,fin,globeOn,current,sub,done,busy,replayed,beat,waiting,stepping,gates:gates.length,clock,cam:camBase.toArray(),hero:hero.position.toArray()})};
+window.__journey={setThumb:p=>setThumb(p),tap:p=>{tapFx=p;redrawPhone();},HP,hand:()=>hand?.rig()??photoGrip,showGlobe,hideGlobe,renderer,composer,sky:()=>skyInfo,modelInfo,placed,camBase,lookGoal,lookCur,scene,THREE,go,mainAction,setSub,tick:(sec)=>{for(let t=0;t<sec;t+=.04) step(.04,false);step(.04,true);},state:()=>({auto,capDur,item,fin,globeOn,current,sub,done,busy,replayed,beat,waiting,stepping,gates:gates.length,clock,cam:camBase.toArray(),hero:hero.position.toArray()})};
