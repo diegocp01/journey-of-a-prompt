@@ -32,7 +32,7 @@ An internet connection is needed: the 3D engine, textures and models are loaded 
 - `index.html`: the page and its buttons.
 - `css/styles.css`: the look of the clock, captions and buttons.
 - `js/copy.js`: all on-screen text, in English and Spanish.
-- `js/phone-grip.js`: the photographed grip and interactive phone display.
+- `js/phone-grip.js`: the photographed grip and interactive phone display. The thumb is cut out of the photo and bends on its own layer, so it lifts off and presses Send.
 - `js/hand.js`: the 3D fallback for the phone grip.
 - `js/main.js`: the 3D world, the story steps and the controls.
 

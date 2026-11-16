@@ -1348,7 +1348,7 @@ function mainAction(){
   if(busy){if(clock>=openAt) skipAhead();return;}
   if(current===MODEL){sub<4?setSub(sub+1):go(HOME);return;}
   if(!done){
-    if(current===0){busy=true;renderHUD();tween(0,.35,p=>setThumb(p),ease);at(.55,runAction);tween(.6,.4,p=>setThumb(1-p),ease);return;}
+    if(current===0){busy=true;renderHUD();tween(0,.4,p=>setThumb(p),ease);at(.7,runAction);tween(.75,.4,p=>setThumb(1-p),ease);return;}
     runAction();return;
   }
   if(current===HOME){replayed?go(0,true):replay();return;}
