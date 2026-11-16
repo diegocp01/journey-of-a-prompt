@@ -7,15 +7,22 @@ const HEIGHT = 1448;
 const DISPLAY = {x: 157, y: 46, width: 374, height: 748};
 const METRES_PER_PIXEL = .148 / DISPLAY.height;
 
-// The thumb that taps Send. In the photo it already rests on the button, so it is cut out
-// of the plate and moved on its own layer: lifted off the glass at rest, down onto Send for a press.
-// Pixel area that holds the part of the thumb that moves; it ends where the thumb meets the hand.
-const THUMB = {x: 360, y: 590, width: 205, height: 215};
-const ROOT = {x: 560, y: 712};   // where the thumb bends from: nothing here moves
-const TIP = {x: 408, y: 668};    // the pad that lands on Send
-const CUT = 562;                 // pixels right of this belong to the hand and stay still
-const LIFT_ANGLE = .5;           // how far the thumb swings up off the button when lifted, radians
-const LIFT_SCALE = .07;          // and how much nearer the camera it looks
+/* The thumb that taps Send.
+   In the photo the thumb lies flat on the Send button. It is cut out of the plate onto its own layer,
+   from the tip back to its base knuckle, and that layer is bent in real 3D like a thumb:
+     - it hinges at the base knuckle and lifts off the glass toward the viewer,
+     - it hinges again at the middle knuckle, so the end points back down at the phone.
+   Lengths are kept; any shortening you see is only the camera's perspective on the bent thumb. */
+const LAYER = {x: 360, y: 590, width: 370, height: 260};  // plate area that holds the whole thumb
+const BASE = {x: 650, y: 760};      // base knuckle: the thumb swings from here
+const KNUCKLE = {x: 522, y: 705};   // middle knuckle: the "elbow" of the thumb
+const TIP = {x: 404, y: 667};
+const FRAME_X = 566;                // right edge of the phone's steel frame where the thumb crosses it
+const LIFT = .56;                   // how far the lower half of the thumb rises off the glass, radians
+const DIP = -.45;                   // slope of the end half once lifted (negative: pointing down at the phone)
+const SWING = .1;                   // small sideways swing from the base knuckle, radians
+// outline of the thumb where it lies over the hand (right of the frame), a little inside its creases
+const OVER_HAND = [[FRAME_X - 4, 656], [610, 686], [660, 708], [704, 728], [716, 764], [700, 806], [660, 818], [610, 806], [FRAME_X - 4, 792]];
 
 export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
   const canvas = document.createElement('canvas');
@@ -41,17 +48,19 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
   mesh.visible = false;
   parent.add(mesh);
 
-  /* the thumb layer: a finely divided patch over the thumb that bends from its root,
-     so the tip swings while the part joined to the hand stays put */
+  /* ---- the thumb layer ---- */
   const thumbCanvas = document.createElement('canvas');
-  thumbCanvas.width = THUMB.width;
-  thumbCanvas.height = THUMB.height;
+  thumbCanvas.width = LAYER.width;
+  thumbCanvas.height = LAYER.height;
   const thumbTexture = new THREE.CanvasTexture(thumbCanvas);
   thumbTexture.colorSpace = THREE.SRGBColorSpace;
   thumbTexture.anisotropy = 8;
-  const px = (x, y) => new THREE.Vector2((x - THUMB.x - THUMB.width / 2) * METRES_PER_PIXEL,
-    (THUMB.y + THUMB.height / 2 - y) * METRES_PER_PIXEL);
-  const bend = {uLift: {value: 0}, uRoot: {value: px(ROOT.x, ROOT.y)}, uTip: {value: px(TIP.x, TIP.y)}};
+  // plate pixels -> the layer's own coordinates (metres, y up, origin at the layer's centre)
+  const local = p => new THREE.Vector2((p.x - LAYER.x - LAYER.width / 2) * METRES_PER_PIXEL,
+    (LAYER.y + LAYER.height / 2 - p.y) * METRES_PER_PIXEL);
+  const base = local(BASE), axis = local(TIP).sub(base).normalize();
+  const lowerLen = local(KNUCKLE).sub(base).dot(axis);
+  const bend = {uLift: {value: 0}, uBase: {value: base}, uAxis: {value: axis}};
   const thumbMaterial = new THREE.MeshBasicMaterial({
     map: thumbTexture, transparent: true, depthWrite: false, toneMapped: false
   });
@@ -59,82 +68,118 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     Object.assign(shader.uniforms, bend);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
-        uniform float uLift; uniform vec2 uRoot; uniform vec2 uTip;`)
+        uniform float uLift; uniform vec2 uBase; uniform vec2 uAxis;
+        /* 0 before a joint, then a smooth start, then rising one for one: distance travelled past the joint */
+        float past(float x, float h) { return x <= 0. ? 0. : (x < h ? x * x / (2. * h) : x - .5 * h); }`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vec2 axis = uTip - uRoot;
-        float t = clamp(dot(transformed.xy - uRoot, axis) / dot(axis, axis), 0., 1.);
-        float w = t * t * (3. - 2. * t);
-        float a = -${LIFT_ANGLE.toFixed(3)} * uLift * w;
-        vec2 d = (transformed.xy - uRoot) * (1. + ${LIFT_SCALE.toFixed(3)} * uLift * w);
-        transformed.xy = uRoot + vec2(d.x * cos(a) - d.y * sin(a), d.x * sin(a) + d.y * cos(a));
-        transformed.z += .004 * uLift * w;`);
+        const float L1 = ${lowerLen.toFixed(6)};
+        vec2 p = transformed.xy - uBase;
+        /* a small swing from the base knuckle, as a whole */
+        float sw = ${SWING.toFixed(3)} * uLift * smoothstep(-.25 * L1, .3 * L1, dot(p, uAxis));
+        p = vec2(cos(sw) * p.x - sin(sw) * p.y, sin(sw) * p.x + cos(sw) * p.y);
+        vec2 side = vec2(-uAxis.y, uAxis.x);
+        float a = dot(p, uAxis), b = dot(p, side);
+        float lower = past(a, .3 * L1), upper = past(a - L1, .22 * L1);
+        float rise = ${LIFT.toFixed(3)} * uLift, dip = ${DIP.toFixed(3)} * uLift;
+        /* two straight parts hinged at the knuckles: the lower one rises, the end one points back down */
+        float along = a - (1. - cos(rise)) * (lower - upper) - (1. - cos(dip)) * upper;
+        transformed.xy = uBase + uAxis * along + side * b;
+        transformed.z += sin(rise) * (lower - upper) + sin(dip) * upper;`);
   };
   const thumbMesh = new THREE.Mesh(new THREE.PlaneGeometry(
-    THUMB.width * METRES_PER_PIXEL, THUMB.height * METRES_PER_PIXEL, 48, 48
+    LAYER.width * METRES_PER_PIXEL, LAYER.height * METRES_PER_PIXEL, 72, 52
   ), thumbMaterial);
   thumbMesh.name = 'Thumb';
-  const c = px(THUMB.x + THUMB.width / 2, THUMB.y + THUMB.height / 2);
   thumbMesh.position.set(
-    (THUMB.x + THUMB.width / 2 - WIDTH / 2) * METRES_PER_PIXEL,
-    (HEIGHT / 2 - THUMB.y - THUMB.height / 2) * METRES_PER_PIXEL,
-    .0004
+    (LAYER.x + LAYER.width / 2 - WIDTH / 2) * METRES_PER_PIXEL,
+    (HEIGHT / 2 - LAYER.y - LAYER.height / 2) * METRES_PER_PIXEL,
+    .0003
   );
   thumbMesh.renderOrder = 2;
+  thumbMesh.frustumCulled = false;
   mesh.add(thumbMesh);
-  void c;
 
   const displayClip = new Path2D();
   displayClip.roundRect(DISPLAY.x, DISPLAY.y, DISPLAY.width, DISPLAY.height, 52);
 
   const plate = new Image();
-  let thumbMask = null;   // the thumb's outline at its place in the photo
-  let screenPatch = null; // plain screen colour to paint where the photographed thumb was
+  let underPatch = null;   // what is under the thumb once it moves: plain glass and the phone's frame
+  let shadow = null;       // the thumb's outline, for its shadow on the glass
 
-  /* find the thumb by its skin colour: skin is clearly redder than the grey glass and the steel frame */
+  const blank = () => {
+    const c = document.createElement('canvas');
+    c.width = LAYER.width;
+    c.height = LAYER.height;
+    return c;
+  };
+
   function cutThumb() {
-    const work = document.createElement('canvas');
-    work.width = THUMB.width;
-    work.height = THUMB.height;
-    const g = work.getContext('2d');
-    g.drawImage(plate, THUMB.x, THUMB.y, THUMB.width, THUMB.height, 0, 0, THUMB.width, THUMB.height);
-    const img = g.getImageData(0, 0, THUMB.width, THUMB.height), d = img.data;
-    let sr = 0, sg = 0, sb = 0, n = 0;
-    const mask = g.createImageData(THUMB.width, THUMB.height);
-    for (let y = 0; y < THUMB.height; y++) for (let x = 0; x < THUMB.width; x++) {
-      const i = (y * THUMB.width + x) * 4, r = d[i], gr = d[i + 1], b = d[i + 2];
-      let a = Math.min(1, Math.max(0, (r - b - 16) / 18)) * (d[i + 3] / 255);
-      const X = THUMB.x + x;
-      a *= Math.min(1, Math.max(0, (CUT - X) / 14));
-      mask.data[i + 3] = Math.round(a * 255);
-      if (a === 0 && X < DISPLAY.x + DISPLAY.width - 12 && THUMB.y + y < DISPLAY.y + DISPLAY.height - 30) {
-        sr += r; sg += gr; sb += b; n++;
-      }
-    }
-    thumbMask = document.createElement('canvas');
-    thumbMask.width = THUMB.width;
-    thumbMask.height = THUMB.height;
-    thumbMask.getContext('2d').putImageData(mask, 0, 0);
+    const W = LAYER.width, H = LAYER.height;
+    const work = blank(), g = work.getContext('2d', {willReadFrequently: true});
+    g.drawImage(plate, LAYER.x, LAYER.y, W, H, 0, 0, W, H);
+    const src = g.getImageData(0, 0, W, H).data;
 
-    /* the thumb on its own: photo pixels kept only where the mask is */
-    const tg = thumbCanvas.getContext('2d');
-    tg.clearRect(0, 0, THUMB.width, THUMB.height);
-    tg.drawImage(work, 0, 0);
-    tg.globalCompositeOperation = 'destination-in';
-    tg.drawImage(thumbMask, 0, 0);
-    tg.globalCompositeOperation = 'source-over';
-    thumbTexture.needsUpdate = true;
-
-    /* a patch of plain glass, a little wider than the thumb, to cover the photographed thumb and its shadow */
-    screenPatch = document.createElement('canvas');
-    screenPatch.width = THUMB.width;
-    screenPatch.height = THUMB.height;
-    const pg = screenPatch.getContext('2d');
+    /* over the hand the thumb is skin on skin, so there its outline is drawn by hand, with a soft edge */
+    const poly = blank(), pg = poly.getContext('2d', {willReadFrequently: true});
     pg.filter = 'blur(5px)';
-    for (const [ox, oy] of [[0, 0], [6, 0], [-6, 0], [0, 6], [0, -6], [5, 5], [-5, 5], [5, -5], [-5, -5]]) pg.drawImage(thumbMask, ox, oy);
-    pg.filter = 'none';
-    pg.globalCompositeOperation = 'source-in';
-    pg.fillStyle = `rgb(${Math.round(sr / n)},${Math.round(sg / n)},${Math.round(sb / n)})`;
-    pg.fillRect(0, 0, THUMB.width, THUMB.height);
+    pg.beginPath();
+    OVER_HAND.forEach(([x, y], i) => pg[i ? 'lineTo' : 'moveTo'](x - LAYER.x, y - LAYER.y));
+    pg.closePath();
+    pg.fill();
+    const polyA = pg.getImageData(0, 0, W, H).data;
+
+    const dx = TIP.x - BASE.x, dy = TIP.y - BASE.y, len = Math.hypot(dx, dy);
+    const mask = new Uint8ClampedArray(W * H);
+    let sr = 0, sg = 0, sb = 0, n = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4, r = src[i], gr = src[i + 1], b = src[i + 2], X = LAYER.x + x, Y = LAYER.y + y;
+      let a;
+      if (X < FRAME_X) {
+        /* over the glass and the frame: skin is clearly redder than grey glass and brighter than dark steel */
+        a = Math.min(1, Math.max(0, (r - b - 16) / 18)) * Math.min(1, Math.max(0, (r - 95) / 30));
+        /* but not the palm showing below the phone */
+        if (Y > (X < 520 ? 772 : 772 + (X - 520) * .5)) a = 0;
+        if (a === 0 && X < DISPLAY.x + DISPLAY.width - 12 && Y < DISPLAY.y + DISPLAY.height - 30) { sr += r; sg += gr; sb += b; n++; }
+      } else a = polyA[i + 3] / 255;
+      /* fade out behind the base knuckle, where the thumb becomes the hand */
+      const along = ((X - BASE.x) * dx + (Y - BASE.y) * dy) / len;
+      a *= Math.min(1, Math.max(0, (along + 46) / 70));
+      mask[y * W + x] = Math.round(a * 255 * (src[i + 3] / 255));
+    }
+    const put = (canvasEl, rgba) => {
+      const c = canvasEl.getContext('2d'), img = c.createImageData(W, H);
+      for (let k = 0; k < W * H; k++) {
+        const [r, gr, b, a] = rgba(k);
+        img.data[k * 4] = r; img.data[k * 4 + 1] = gr; img.data[k * 4 + 2] = b; img.data[k * 4 + 3] = a;
+      }
+      c.putImageData(img, 0, 0);
+    };
+    /* the thumb on its own layer */
+    put(thumbCanvas, k => [src[k * 4], src[k * 4 + 1], src[k * 4 + 2], mask[k]]);
+    thumbTexture.needsUpdate = true;
+    /* its outline, dark, for the shadow */
+    shadow = blank();
+    put(shadow, k => [38, 32, 28, mask[k]]);
+
+    /* what shows where the photographed thumb used to be:
+       plain glass over the screen, and the phone's own frame continued down from just above the thumb */
+    const glass = [Math.round(sr / n), Math.round(sg / n), Math.round(sb / n)];
+    const wide = blank(), wg = wide.getContext('2d', {willReadFrequently: true});
+    wg.filter = 'blur(4px)';
+    for (const [ox, oy] of [[0, 0], [7, 0], [-7, 0], [0, 7], [0, -7], [5, 5], [-5, 5], [5, -5], [-5, -5]]) wg.drawImage(shadow, ox, oy);
+    const wideA = wg.getImageData(0, 0, W, H).data;
+    const frameLeft = DISPLAY.x + DISPLAY.width - 4 - LAYER.x, frameRight = FRAME_X - 5 - LAYER.x;
+    const cleanTop = 598 - LAYER.y, cleanRows = 34, frameTo = 752 - LAYER.y;
+    underPatch = blank();
+    put(underPatch, k => {
+      const x = k % W, y = (k - x) / W, a = Math.min(255, wideA[k * 4 + 3] * 1.6);
+      if (x < frameLeft) return [...glass, a];
+      if (x < frameRight && y < frameTo) {
+        const s = ((cleanTop + ((y - cleanTop) % cleanRows + cleanRows) % cleanRows) * W + x) * 4;
+        return [src[s], src[s + 1], src[s + 2], a];
+      }
+      return [0, 0, 0, 0];
+    });
   }
 
   function redraw(press) {
@@ -143,42 +188,29 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     bend.uLift.value = lift;
     context.clearRect(0, 0, WIDTH, HEIGHT);
     context.drawImage(plate, 0, 0);
+    /* cover the photographed thumb with what is under it */
+    context.drawImage(underPatch, LAYER.x, LAYER.y);
     context.save();
     context.clip(displayClip);
-    /* glass where the photographed thumb was */
-    context.drawImage(screenPatch, THUMB.x, THUMB.y);
     /* the screen: chat, prompt and the Send button */
     context.save();
     context.translate(DISPLAY.x, DISPLAY.y);
     context.scale(DISPLAY.width / 540, DISPLAY.height / 1166);
     drawPhone(context, 540, 1166, true, press);
     context.restore();
-    /* the thumb's soft shadow on the glass: tight under the pad when pressing, wider and fainter when lifted */
-    context.save();
-    context.globalAlpha = .34 - .16 * lift;
-    context.filter = `blur(${3 + 9 * lift}px)`;
-    context.translate(ROOT.x, ROOT.y);
-    context.rotate(LIFT_ANGLE * .75 * lift);
-    context.translate(-ROOT.x - 4 - 8 * lift, -ROOT.y + 4 + 22 * lift);
-    context.drawImage(shadowOf(), THUMB.x, THUMB.y);
+    /* the thumb's shadow on the glass: tight under the pad when pressing, softer and off to one side when lifted */
+    const angle = Math.atan2(TIP.y - BASE.y, TIP.x - BASE.x);
+    context.globalAlpha = .32 - .12 * lift;
+    context.filter = `blur(${3 + 7 * lift}px)`;
+    context.translate(BASE.x - 12 * lift, BASE.y + 3 + 13 * lift);
+    context.rotate(-SWING * lift);
+    context.rotate(angle);
+    context.scale(1 - .1 * lift, 1);
+    context.rotate(-angle);
+    context.translate(-BASE.x, -BASE.y);
+    context.drawImage(shadow, LAYER.x, LAYER.y);
     context.restore();
-    context.restore();
-    /* outside the glass the photographed thumb stays as it is, under the moving layer */
     texture.needsUpdate = true;
-  }
-
-  let shadowCanvas = null;
-  function shadowOf() {
-    if (shadowCanvas) return shadowCanvas;
-    shadowCanvas = document.createElement('canvas');
-    shadowCanvas.width = THUMB.width;
-    shadowCanvas.height = THUMB.height;
-    const s = shadowCanvas.getContext('2d');
-    s.drawImage(thumbMask, 0, 0);
-    s.globalCompositeOperation = 'source-in';
-    s.fillStyle = '#2a2420';
-    s.fillRect(0, 0, THUMB.width, THUMB.height);
-    return shadowCanvas;
   }
 
   plate.onload = () => {
