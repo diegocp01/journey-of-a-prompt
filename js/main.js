@@ -96,6 +96,14 @@ scene.environment=roomEnv;
 let skyEnv=null,skyMesh=null,skyInfo=null;
 const bgColor=new THREE.Color(0xb9d3ea);
 scene.background=bgColor;
+/* the opening screen's backdrop: light sky colour behind the title in the top half, dark below where the model sits */
+const introBg=(()=>{
+  const c=document.createElement("canvas");c.width=4;c.height=512;
+  const g=c.getContext("2d"),gr=g.createLinearGradient(0,0,0,512);
+  [[0,"#c6dcf0"],[.3,"#b9d3ea"],[.42,"#7f9fcb"],[.5,"#2c3c6e"],[.57,"#0a1030"],[1,"#060a1c"]].forEach(([t,col])=>gr.addColorStop(t,col));
+  g.fillStyle=gr;g.fillRect(0,0,4,512);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
+})();
 
 /* real-world assets (all CC0 from polyhaven.com, loaded at runtime; everything has a built-in fallback) */
 const PH="https://dl.polyhaven.org/file/ph-assets";
@@ -1560,6 +1568,8 @@ function showIntro(){
   introOn=true;current=0;sub=0;subNote="";done=false;replayed=false;busy=false;beat=-1;item=0;fin=0;boost=1;
   hideGlobe();resetStop(0);heroVis=0;heroScaleOverride=null;
   introCam(true);showTimer(0);renderHUD();
+  /* start in the intro's own light and colours straight away, with no fade from the last scene */
+  const Z=ZONES.intro;zoneCur.fog.set(Z.fog);["den","sun","hemi","fill","exp","env"].forEach(k=>{zoneCur[k]=Z[k];});
 }
 function introCam(snap){
   const port=camera.aspect<1;
@@ -1801,6 +1811,7 @@ function step(dt,draw){
   scene.environment=openAir&&skyEnv?skyEnv:roomEnv;scene.environmentIntensity=zoneCur.env;
   if(ocean){ocean.material.uniforms.time.value=amb*.5;ocean.visible=camera.position.y>-.15;underSea.visible=!ocean.visible;}
   scene.fog.color.copy(zoneCur.fog);bgColor.copy(zoneCur.fog);scene.fog.density=zoneCur.den;
+  scene.background=zn==="intro"?introBg:bgColor;
   sun.intensity=zoneCur.sun;hemi.intensity=zoneCur.hemi;fill.intensity=zoneCur.fill;renderer.toneMappingExposure=zoneCur.exp;
   skyGroup.visible=zn==="out"||zn==="room";skyGroup.position.copy(camera.position);
   setShadowExt(zn==="room"?6:45);
