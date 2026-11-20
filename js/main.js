@@ -10,6 +10,8 @@ import {Water} from 'three/addons/objects/Water.js';
 import {appCopy} from './copy.js';
 import {createHand,HP} from './hand.js';
 import {createPhotoGrip} from './phone-grip.js';
+import {createForest,scatter,createClouds,tickNature} from './nature.js';
+import {createCity} from './city.js';
 
 /* =====================================================================
    COPY
@@ -104,10 +106,12 @@ function pbr(mat,id,o={}){
   if(o.rough) texLoader.load(base+"rough_1k.jpg",t=>{prep(t);mat.roughnessMap=t;mat.roughness=1;mat.needsUpdate=true;});
   return mat;
 }
+/* a model's shape file sits in the folder of its largest size; most go up to 8k, these stop at 4k */
+const BIN_RES={grass_medium_02:"4k",shrub_03:"4k"};
 const assetManager=new THREE.LoadingManager();
 assetManager.setURLModifier(url=>{
   let m=url.match(/Models\/gltf\/1k\/([^/]+)\/textures\/(.+)$/);if(m) return `${PH}/Models/jpg/1k/${m[1]}/${m[2]}`;
-  m=url.match(/Models\/gltf\/1k\/([^/]+)\/([^/]+\.bin)$/);if(m) return `${PH}/Models/gltf/8k/${m[1]}/${m[2]}`;
+  m=url.match(/Models\/gltf\/1k\/([^/]+)\/([^/]+\.bin)$/);if(m) return `${PH}/Models/gltf/${BIN_RES[m[1]]||"8k"}/${m[1]}/${m[2]}`;
   return url;
 });
 const gltfLoader=new GLTFLoader(assetManager),modelInfo={};
@@ -118,6 +122,16 @@ function model(id,cb){
     modelInfo[id]={min:b.min.toArray().map(v=>+v.toFixed(3)),max:b.max.toArray().map(v=>+v.toFixed(3))};
     cb(g.scene);
   },undefined,()=>console.warn("model not loaded:",id));
+}
+/* plants: their leaves are flat cards, cut to shape by a separate black-and-white cut-out picture */
+function plant(id,cb){
+  model(id,m=>{
+    texLoader.load(`${PH}/Models/jpg/1k/${id}/${id}_alpha_1k.jpg`,a=>{
+      a.flipY=false;
+      m.traverse(o=>{if(o.isMesh){const mt=o.material;mt.alphaMap=a;mt.alphaTest=.35;mt.transparent=false;mt.depthWrite=true;mt.side=THREE.DoubleSide;mt.alphaToCoverage=true;mt.needsUpdate=true;}});
+      cb(m);
+    });
+  });
 }
 const composer=new EffectComposer(renderer,new THREE.WebGLRenderTarget(4,4,{type:THREE.HalfFloatType,samples:4}));
 composer.addPass(new RenderPass(scene,camera));
@@ -233,6 +247,7 @@ const skyGroup=new THREE.Group();scene.add(skyGroup);
   skyGroup.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:1.8,sizeAttenuation:false,fog:false,transparent:true,opacity:0,depthWrite:false})));
   const sunGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW,color:0xfff2cc,blending:THREE.AdditiveBlending,fog:false,depthWrite:false,opacity:.95}));
   sunGlow.position.set(1018,360,-275);sunGlow.scale.set(420,420,1);skyGroup.add(sunGlow);
+  createClouds(skyGroup);
 }
 
 const hemi=new THREE.HemisphereLight(0xcfe3ff,0x7d8a66,1);scene.add(hemi);
@@ -312,38 +327,42 @@ const seaY=x=>(x<=130||x>=250)?0:-14*Math.pow(Math.sin(Math.PI*(x-130)/120),.7);
   const spg=new THREE.BufferGeometry();spg.setAttribute("position",new THREE.Float32BufferAttribute(sp,3));
   scene.add(new THREE.Points(spg,new THREE.PointsMaterial({map:GLOW,color:0xdfe8ff,size:.13,transparent:true,opacity:.8,depthWrite:false,blending:THREE.AdditiveBlending})));
   /* trees + far hills */
-  const cone=new THREE.InstancedMesh(new THREE.ConeGeometry(1.7,5.6,8),M(0x2f6a3c,{r:1}),300);
-  const trunk=new THREE.InstancedMesh(new THREE.CylinderGeometry(.22,.3,1.4,6),M(0x3a2a1e,{r:1}),300);
-  let n=0;
-  while(n<300){
+  /* fir trees built from real twig and bark photos (see nature.js) */
+  const spots=[];
+  while(spots.length<300){
     const land2=Math.random()<.3,x=land2?252+Math.random()*190:-60+Math.random()*186,z=(Math.random()-.5)*190,s=.7+Math.random()*.9;
     if(Math.abs(z)<11) continue;
     if(x>296&&x<404&&Math.abs(z)<31) continue;
     if(Math.abs(x)<7&&Math.abs(z)<7) continue;
-    d.rotation.set(0,Math.random()*6,0);d.scale.setScalar(s);
-    d.position.set(x,(.9+2.8)*s,z);d.updateMatrix();cone.setMatrixAt(n,d.matrix);
-    d.position.set(x,.7*s,z);d.updateMatrix();trunk.setMatrixAt(n,d.matrix);n++;
+    if(Math.hypot(x-42,z+8)<11) continue;           /* keep the cell tower's fenced yard clear */
+    spots.push({x,z,s,rot:Math.random()*6.28});
   }
-  cone.castShadow=trunk.castShadow=true;scene.add(cone,trunk);
+  createForest(scene,spots);
+  /* undergrowth: real grass, ferns, shrubs and mossy rocks (Poly Haven, CC0), scattered where the camera goes */
+  {
+    let seed=99;const R=()=>(seed=(seed*1664525+1013904223)>>>0)/4294967296;
+    const clear=(x,z)=>!(x>34.4&&x<49.6&&z>-16.6&&z<-3)&&!(x>260&&x<302&&Math.abs(z)<15.5)&&!(Math.abs(x)<2.5&&Math.abs(z)<2.5)&&!(x>296&&x<404&&Math.abs(z)<31)&&!(x>127&&x<253);
+    const ring=(n,cx,cz,r0,r1)=>{const out=[];let tries=0;while(out.length<n&&tries++<n*30){const a=R()*6.283,r=r0+(r1-r0)*Math.sqrt(R()),x=cx+Math.cos(a)*r,z=cz+Math.sin(a)*r;if(clear(x,z)) out.push({x,z,rot:R()*6.28});}return out;};
+    const spread=(n,lo,hi)=>[...ring(n*.5,42,-8,1.2,26),...ring(n*.28,14,0,3.5,24),...ring(n*.22,280,2,3,20)].map(q=>({...q,s:lo+R()*(hi-lo)}));
+    plant("grass_medium_02",m=>scatter(scene,m,spread(380,1.5,2.8),{cast:false,maxTris:1800}));
+    plant("fern_02",m=>scatter(scene,m,spread(90,1.1,2)));
+    plant("shrub_03",m=>scatter(scene,m,spread(60,1.2,2.2)));
+    /* mossy rocks, one at each spot */
+    model("rock_moss_set_01",m=>scatter(scene,m,[[24,-22],[60,-19],[58,9],[26,12],[12,-17],[-9,14],[254,-19],[256,20],[84,-24],[100,13],[33,-2],[51,-12],[70,6],[18,-9],[8,12],[90,-9]].map(([x,z])=>({x,z,rot:R()*6.28,s:.6+R()*.7,y:-.12})),{maxTris:11500}));
+    /* gravel inside the fenced yard */
+    const gv=canvasTex(256,256,(g,w,h)=>{g.fillStyle="#8d8a84";g.fillRect(0,0,w,h);for(let i=0;i<5200;i++){const v=90+Math.floor(R()*110);g.fillStyle=`rgb(${v},${v-3},${v-8})`;const r=1+R()*2.6;g.beginPath();g.ellipse(R()*w,R()*h,r,r*(.6+R()*.4),R()*3,0,7);g.fill();}});
+    gv.redraw();gv.tex.wrapS=gv.tex.wrapT=THREE.RepeatWrapping;gv.tex.repeat.set(9,8);
+    const yard=new THREE.Mesh(new THREE.PlaneGeometry(14,12.4),new THREE.MeshStandardMaterial({map:gv.tex,bumpMap:gv.tex,bumpScale:.6,roughness:.97,envMapIntensity:.08}));
+    yard.rotation.x=-Math.PI/2;yard.position.set(42,.012,-9.8);yard.receiveShadow=true;scene.add(yard);
+  }
   const hill=M(0x5f8a57,{r:1,env:.05});
   [[-40,-190,90,26],[70,210,110,30],[180,-240,120,34],[330,230,130,30],[430,-210,120,28],[-120,160,100,24]].forEach(([x,z,s,h])=>{
     const m=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),hill);m.scale.set(s,h,s*.7);m.position.set(x,-4,z);scene.add(m);
   });
 }
 
-/* a city at night at each end of the trip */
-{
-  const pat=Array.from({length:64},()=>Math.random()<.34?(Math.random()<.7?"#ffd9a0":"#cfe4ff"):null);
-  const mk=(bg,off)=>{const t=canvasTex(256,256,(g,w,h)=>{g.fillStyle=bg;g.fillRect(0,0,w,h);pat.forEach((c,i)=>{g.fillStyle=c||off;g.fillRect((i%8)*32+7,(i>>3)*32+8,18,16);});});t.redraw();t.tex.wrapS=t.tex.wrapT=THREE.RepeatWrapping;return t.tex;};
-  const bm=new THREE.MeshStandardMaterial({map:mk("#8e99aa","#4f7096"),emissiveMap:mk("#000","#000"),emissive:0xffffff,emissiveIntensity:.12,roughness:.85,metalness:.1,envMapIntensity:.2});
-  const rnd=(a,b)=>a+Math.random()*(b-a);
-  [[-70,112,-150,-58],[-70,112,58,150],[256,440,-160,-64],[256,440,64,160]].forEach(([x0,x1,z0,z1])=>{
-    for(let i=0;i<14;i++){
-      const x=rnd(x0,x1),z=rnd(z0,z1),w=rnd(7,15),d=rnd(7,15),h=rnd(10,46);
-      bx(x-w/2,x+w/2,0,h,z-d/2,z+d/2,bm,{cast:false,recv:false,tile:8});
-    }
-  });
-}
+/* a town at each end of the trip (see city.js) */
+createCity(scene,[[-70,112,-150,-58],[-70,112,58,150],[256,440,-160,-64],[256,440,64,160]]);
 
 /* phone screen */
 /* a soft diagonal reflection, as on real glass */
@@ -517,6 +536,80 @@ let beacon,towerCab;
   bx(44.3,45.5,0,1.8,-5.9,-5,M(0xaeb5c0,{r:.85,env:.1}));bx(45.7,46.5,0,1.3,-5.8,-5.1,M(0x9fa7b3,{r:.85,env:.1}));
   [.45,.7,.95,1.2,1.45].forEach(y=>bx(44.42,45.38,y,y+.11,-5.0,-4.985,vent,{cast:false}));
   towerCab={m:vent,l:cl};
+  /* ---- the tower's working parts: footings, antennas, dishes, ladder, cables, railing ---- */
+  {
+    const white=M(0xe8eaed,{r:.55,env:.4}),grey=M(0x6f7780,{m:.6,r:.5,env:.6}),blk=M(0x15171b,{r:.7,env:.2}),conc=M(0x9b9a95,{r:.96,env:.05});
+    for(let i=0;i<4;i++){const c=corner(0,i);bx(c.x-.5,c.x+.5,0,.32,c.z-.5,c.z+.5,conc,{parent:tw});bx(c.x-.2,c.x+.2,.32,.4,c.z-.2,c.z+.2,grey,{parent:tw,cast:false});}
+    /* three antenna sectors: a pipe frame, two tall panels each, a radio unit behind every panel */
+    for(let k=0;k<3;k++){
+      const g=new THREE.Group();g.rotation.y=k*2.094+.5;g.position.y=22.9;tw.add(g);
+      beam(V(.3,.2,0),V(1.7,.2,0),.05,grey,g);beam(V(.3,2.2,0),V(1.7,2.2,0),.05,grey,g);
+      beam(V(1.7,.2,-.8),V(1.7,.2,.8),.045,grey,g);beam(V(1.7,2.2,-.8),V(1.7,2.2,.8),.045,grey,g);
+      beam(V(.3,.2,0),V(1.7,2.2,0),.03,grey,g);
+      [-.6,.6].forEach(z=>{
+        cyl(.045,.045,3.1,grey,1.7,1.2,z,8,g);
+        const pn=bx(1.8,1.95,-.15,2.55,z-.18,z+.18,white,{parent:g});pn.rotation.z=-.05;
+        bx(1.795,1.8,-.1,2.5,z-.14,z+.14,grey,{parent:g,cast:false});
+        bx(1.5,1.64,.45,1.05,z-.14,z+.14,grey,{parent:g});
+        beam(V(1.57,.45,z),V(1.2,-.4,z*.5),.018,blk,g);
+      });
+    }
+    /* two microwave dishes linking this tower to the next ones */
+    [[19.2,.2],[15.4,2.5]].forEach(([y,az])=>{
+      const g=new THREE.Group();g.rotation.y=az;g.position.y=y;tw.add(g);
+      const r=hw(y)+.15,drum=new THREE.Mesh(new THREE.CylinderGeometry(.62,.62,.34,28),white);
+      drum.rotation.z=Math.PI/2;drum.position.set(r+.55,0,0);drum.castShadow=true;g.add(drum);
+      const back=new THREE.Mesh(new THREE.CylinderGeometry(.3,.6,.22,20),grey);back.rotation.z=-Math.PI/2;back.position.set(r+.28,0,0);g.add(back);
+      beam(V(r-.3,0,0),V(r+.2,0,0),.06,grey,g);beam(V(r-.2,-.5,-.6),V(r-.2,-.5,.6),.04,grey,g);
+    });
+    /* ladder up one face, with the feeder cables running beside it */
+    const lad=canvasTex(64,64,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle="#a7adb6";g.fillRect(8,0,7,h);g.fillRect(49,0,7,h);[6,27,48].forEach(y=>g.fillRect(8,y,48,5));});
+    lad.redraw();lad.tex.wrapS=lad.tex.wrapT=THREE.RepeatWrapping;lad.tex.repeat.set(1,30);
+    const ladder=new THREE.Mesh(new THREE.PlaneGeometry(.5,26.05),new THREE.MeshStandardMaterial({map:lad.tex,alphaTest:.5,side:THREE.DoubleSide,metalness:.6,roughness:.45,envMapIntensity:.6}));
+    ladder.position.set(0,13,1.47);ladder.rotation.x=-.0607;tw.add(ladder);
+    [-.42,-.5,-.58].forEach(x=>beam(V(x,.1,2.16),V(x*.5,25.6,.66),.028,blk,tw));
+    /* safety railing round the top platform */
+    [.55,1.05].forEach(h=>{const ring=new THREE.Mesh(new THREE.TorusGeometry(1.08,.028,6,32),grey);ring.rotation.x=Math.PI/2;ring.position.y=26.26+h;tw.add(ring);});
+    for(let k=0;k<8;k++){const a=k*.785;cyl(.024,.024,1.05,grey,Math.cos(a)*1.08,26.78,Math.sin(a)*1.08,6,tw);}
+  }
+  /* ---- the equipment cabinet at the foot of the tower ---- */
+  {
+    const conc=M(0x9b9a95,{r:.96,env:.05}),grey=M(0x5d646d,{m:.6,r:.5,env:.5}),cap=M(0xc4cad3,{r:.7,env:.2}),blk=M(0x15171b,{r:.7,env:.2});
+    bx(43.85,46.85,0,.1,-6.3,-4.55,conc);
+    bx(44.24,45.56,1.8,1.87,-5.96,-4.93,cap);bx(45.65,46.55,1.3,1.36,-5.86,-5.03,cap);
+    /* double doors: seam, frame, hinges, handle */
+    bx(44.893,44.907,.16,1.74,-5.0,-4.993,blk,{cast:false});
+    [[44.34,44.36,.14,1.76],[45.44,45.46,.14,1.76],[44.34,45.46,.14,.16],[44.34,45.46,1.74,1.76]].forEach(([x0,x1,y0,y1])=>bx(x0,x1,y0,y1,-5.0,-4.992,grey,{cast:false}));
+    [.35,.95,1.55].forEach(y=>{cyl(.018,.018,.11,grey,44.33,y,-4.985,8);cyl(.018,.018,.11,grey,45.47,y,-4.985,8);});
+    bx(44.93,44.96,.82,1.08,-4.99,-4.95,grey);bx(44.84,44.87,.82,1.08,-4.99,-4.95,grey);
+    /* warning sign and status lights */
+    const sign=canvasTex(128,96,(g,w,h)=>{g.fillStyle="#f6c61c";g.fillRect(0,0,w,h);g.strokeStyle="#111";g.lineWidth=6;g.strokeRect(4,4,w-8,h-8);g.beginPath();g.moveTo(64,16);g.lineTo(102,78);g.lineTo(26,78);g.closePath();g.lineWidth=7;g.lineJoin="round";g.stroke();g.fillStyle="#111";g.fillRect(60,36,8,24);g.fillRect(60,65,8,8);});
+    sign.redraw();
+    const sg=new THREE.Mesh(new THREE.PlaneGeometry(.24,.18),new THREE.MeshStandardMaterial({map:sign.tex,roughness:.6,envMapIntensity:.2}));sg.position.set(45.18,1.52,-4.981);scene.add(sg);
+    [0x4ade80,0x4ade80,0xffb84a].forEach((c,k)=>{const l=bx(44.46+k*.07,44.5+k*.07,1.6,1.64,-4.992,-4.98,E(c,3),{cast:false});l.userData.blink=k+7;});
+    /* the smaller box: a fan grille on its front */
+    const fan=canvasTex(128,128,(g,w,h)=>{g.fillStyle="#8d95a1";g.fillRect(0,0,w,h);g.fillStyle="#1b1e24";g.beginPath();g.arc(64,64,52,0,7);g.fill();g.strokeStyle="#8d95a1";g.lineWidth=5;for(let r=10;r<52;r+=10){g.beginPath();g.arc(64,64,r,0,7);g.stroke();}g.lineWidth=6;g.beginPath();g.moveTo(8,64);g.lineTo(120,64);g.moveTo(64,8);g.lineTo(64,120);g.stroke();});
+    fan.redraw();
+    const fg=new THREE.Mesh(new THREE.PlaneGeometry(.52,.52),new THREE.MeshStandardMaterial({map:fan.tex,roughness:.7,metalness:.3,envMapIntensity:.3}));fg.position.set(46.1,.78,-5.095);scene.add(fg);
+    /* conduits: cabinet to cabinet, cabinet to the tower leg, and down into the ground */
+    beam(V(45.5,.45,-5.5),V(45.7,.45,-5.5),.05,grey);beam(V(45.5,.95,-5.5),V(45.7,.95,-5.5),.035,blk);
+    [-5.72,-5.62,-5.52].forEach(z=>beam(V(44.3,1.45,z),V(44.14,2.2,z-.18),.028,blk));
+    cyl(.06,.06,.5,grey,46.62,.25,-5.45,10);beam(V(46.5,.5,-5.45),V(46.62,.5,-5.45),.06,grey);
+  }
+  /* ---- chain-link fence round the back and sides of the yard ---- */
+  {
+    const link=canvasTex(64,64,(g,w,h)=>{g.clearRect(0,0,w,h);g.strokeStyle="#b9bec6";g.lineWidth=3.2;g.beginPath();for(let k=-64;k<=64;k+=32){g.moveTo(k,0);g.lineTo(k+64,64);g.moveTo(k+64,0);g.lineTo(k,64);}g.stroke();});
+    link.redraw();link.tex.wrapS=link.tex.wrapT=THREE.RepeatWrapping;
+    const post=M(0x8f969f,{m:.7,r:.45,env:.6});
+    const run=(x0,z0,x1,z1)=>{
+      const len=Math.hypot(x1-x0,z1-z0),t=link.tex.clone();t.needsUpdate=true;t.repeat.set(len/.22,2/.22);
+      const mat=new THREE.MeshStandardMaterial({map:t,alphaTest:.3,side:THREE.DoubleSide,metalness:.7,roughness:.4,envMapIntensity:.7});mat.alphaToCoverage=true;
+      const m=new THREE.Mesh(new THREE.PlaneGeometry(len,2),mat);m.position.set((x0+x1)/2,1.02,(z0+z1)/2);m.rotation.y=-Math.atan2(z1-z0,x1-x0);m.castShadow=true;scene.add(m);
+      const n=Math.round(len/2.4);for(let k=0;k<=n;k++){const u=k/n;cyl(.045,.045,2.2,post,x0+(x1-x0)*u,1.1,z0+(z1-z0)*u,8);}
+      beam(V(x0,2.05,z0),V(x1,2.05,z1),.03,post);
+    };
+    run(35,-16,49,-16);run(35,-16,35,-3.6);run(49,-16,49,-3.6);
+  }
   label("tower",42,33.4,-8,1.5);
   tap(tw,...stopTap(1));
 }
@@ -603,6 +696,39 @@ const signTex=canvasTex(1024,150,(g,w,h)=>{
   const cool=new THREE.InstancedMesh(new THREE.BoxGeometry(4,1.6,4),M(0x565d68,{r:.7,m:.3}),27),d=new THREE.Object3D();let n=0;
   for(let x=312;x<=392;x+=10) for(let z=-14;z<=14;z+=14){d.position.set(x,13.2,z);d.updateMatrix();cool.setMatrixAt(n++,d.matrix);}
   cool.castShadow=true;scene.add(cool);
+  /* ---- the outside of the building: wall ribs, a band of windows, loading doors, roof fans, a yard ---- */
+  {
+    const rib=M(0x1a2030,{m:.5,r:.45,env:.7}),glassM=M(0x27405c,{m:.7,r:.12,env:1.4}),capM=M(0x3a4254,{m:.6,r:.4,env:.6}),yellow=M(0xf2b619,{r:.6,env:.2}),whiteM=M(0xdfe3e8,{r:.6,env:.3}),darkM=M(0x23272e,{m:.5,r:.5,env:.5});
+    for(let z=-25;z<=25;z+=5){
+      if(Math.abs(z)>1) bx(299.84,300,0,12,z-.14,z+.14,rib,{cast:false});
+      if(z<25) bx(299.9,300,9.1,10.5,z+.34,z+4.66,glassM,{cast:false});
+    }
+    bx(299.7,300.5,12.4,12.75,-25.5,25.5,capM);
+    /* canopy over the entrance */
+    bx(298.4,300,4.3,4.5,-3.2,3.2,capM);cyl(.06,.06,4.3,capM,298.5,2.15,-3.05,8);cyl(.06,.06,4.3,capM,298.5,2.15,3.05,8);
+    /* two loading doors with ribbed shutters, guarded by yellow posts */
+    const shut=canvasTex(64,64,(g,w,h)=>{g.fillStyle="#5f6774";g.fillRect(0,0,w,h);for(let y=0;y<h;y+=8){g.fillStyle="#7b8492";g.fillRect(0,y,w,3);g.fillStyle="#3d444f";g.fillRect(0,y+6,w,2);}});
+    shut.redraw();shut.tex.wrapS=shut.tex.wrapT=THREE.RepeatWrapping;shut.tex.repeat.set(1,6);
+    const shutM=new THREE.MeshStandardMaterial({map:shut.tex,roughness:.5,metalness:.6,envMapIntensity:.6});
+    [-16,16].forEach(z=>{
+      const dr=new THREE.Mesh(new THREE.PlaneGeometry(4.4,4.2),shutM);dr.rotation.y=-Math.PI/2;dr.position.set(299.93,2.1,z);scene.add(dr);
+      bx(299.8,300,4.2,4.5,z-2.4,z+2.4,capM,{cast:false});bx(299.8,300,0,4.2,z-2.4,z-2.2,capM,{cast:false});bx(299.8,300,0,4.2,z+2.2,z+2.4,capM,{cast:false});
+      [-1.9,-.65,.65,1.9].forEach(dz=>{cyl(.1,.1,1,yellow,298.6,.5,z+dz,10);});
+    });
+    /* a fan on every roof cooling unit */
+    const fanG=new THREE.CylinderGeometry(1.5,1.5,.16,24),fans=new THREE.InstancedMesh(fanG,darkM,27),hubs=new THREE.InstancedMesh(new THREE.CylinderGeometry(.3,.3,.3,12),capM,27),o=new THREE.Object3D();let k=0;
+    for(let x=312;x<=392;x+=10) for(let z=-14;z<=14;z+=14){o.position.set(x,14.08,z);o.updateMatrix();fans.setMatrixAt(k,o.matrix);hubs.setMatrixAt(k++,o.matrix);}
+    scene.add(fans,hubs);
+    /* outside yard: a fuel tank and generators for when the power fails, and parking lines */
+    [[-13],[13]].forEach(([z])=>{
+      const tank=new THREE.Mesh(new THREE.CapsuleGeometry(1.1,4.2,8,20),whiteM);tank.rotation.x=Math.PI/2;tank.position.set(291,1.55,z*1.25);tank.castShadow=true;scene.add(tank);
+      [-1.5,1.5].forEach(dz=>bx(290.4,291.6,0,.5,z*1.25+dz-.15,z*1.25+dz+.15,darkM));
+      [0,1].forEach(i=>{const gx=283-i*5.5;bx(gx-2,gx+2,0,2.1,z*1.25-1.1,z*1.25+1.1,M(0x4b6a52,{r:.6,m:.3,env:.4}));bx(gx-1.7,gx+1.7,2.1,2.3,z*1.25-.9,z*1.25+.9,darkM);cyl(.12,.12,1.2,darkM,gx+1.2,2.9,z*1.25,8);});
+    });
+    const lines=canvasTex(256,64,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle="rgba(235,235,225,.85)";for(let x=8;x<w;x+=32) g.fillRect(x,0,3,h);});
+    lines.redraw();
+    [-9.6,9.6].forEach(z=>{const pl=new THREE.Mesh(new THREE.PlaneGeometry(22,4.6),new THREE.MeshStandardMaterial({map:lines.tex,transparent:true,roughness:.9,depthWrite:false}));pl.rotation.x=-Math.PI/2;pl.position.set(275,.012,z);scene.add(pl);});
+  }
   const poles=[],bulbs=[];
   [268,278,288,297].forEach(x=>[-5.5,5.5].forEach(z=>{poles.push(cyl(.07,.09,4.2,M(0x2b2f36,{m:.6,r:.5}),x,2.1,z,8));const b=new THREE.Mesh(new THREE.SphereGeometry(.2,10,10),E(0xfff0d0,5));b.position.set(x,4.3,z);scene.add(b);bulbs.push(b);}));
   model("security_camera_01",m=>{[[304.5,-5.95,0],[304.5,5.95,Math.PI]].forEach(([x,z,r])=>{const c=m.clone();c.position.set(x,4.2,z);c.rotation.y=r;scene.add(c);});placed.cam=m;});
@@ -1502,7 +1628,7 @@ function frame(){
   step(Math.min(.1,rclock.getDelta()),true);
 }
 function step(dt,draw){
-  amb+=dt;
+  amb+=dt;tickNature(amb);
   if(!waiting){
     let nc=clock+dt*(realSpeed?1:Math.min(1,rate*boost));
     if(softs.length&&nc>=softs[0]){if(amb<readUntil) nc=Math.max(clock,softs[0]-.0005);else softs.shift();}

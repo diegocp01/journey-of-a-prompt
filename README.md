@@ -34,6 +34,8 @@ An internet connection is needed: the 3D engine, textures and models are loaded 
 - `js/copy.js`: all on-screen text, in English and Spanish.
 - `js/phone-grip.js`: the photographed grip and interactive phone display. The thumb is cut out of the photo onto its own layer and bends in 3D at its two knuckles, so it lifts off the glass and presses Send.
 - `js/hand.js`: the 3D fallback for the phone grip.
+- `js/nature.js`: fir trees built from real twig and bark photos, scattered plants and rocks, clouds.
+- `js/city.js`: the towns at each end of the trip.
 - `js/main.js`: the 3D world, the story steps and the controls.
 
 ## Controls
