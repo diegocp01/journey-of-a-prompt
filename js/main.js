@@ -391,12 +391,13 @@ function drawPhone(g,w,h,photo=false,press=0){
     /* front camera lens inside the island */
     {const cx=w/2+52,cy=63,gr=g.createRadialGradient(cx-3,cy-3,1,cx,cy,11);gr.addColorStop(0,"#3a4d7a");gr.addColorStop(.5,"#141b30");gr.addColorStop(1,"#05070d");g.fillStyle=gr;g.beginPath();g.arc(cx,cy,11,0,7);g.fill();g.fillStyle="rgba(140,170,255,.55)";g.beginPath();g.arc(cx-3.5,cy-3.5,2.6,0,7);g.fill();}
   }
-  g.fillStyle=ink;[0,1,2,3].forEach(i=>g.fillRect(372+i*11,74-10-i*5,7,10+i*5));
-  g.lineWidth=5;g.lineCap="round";g.strokeStyle=ink;
-  [9,19,29].forEach(r=>{g.beginPath();g.arc(435,76,r,-Math.PI*.75,-Math.PI*.25);g.stroke();});
-  g.beginPath();g.arc(435,76,3,0,7);g.fill();
-  g.lineWidth=3;g.strokeStyle="rgba(13,13,13,.45)";g.beginPath();g.roundRect(462,52,44,24,7);g.stroke();
-  g.fillStyle=ink;g.beginPath();g.roundRect(465,55,34,18,4);g.fill();g.fillRect(508,60,3,8);
+  /* signal, Wi-Fi and battery, at the small size they have on a real phone */
+  g.fillStyle=ink;[0,1,2,3].forEach(i=>{g.beginPath();g.roundRect(386+i*7.4,73-(6+i*3.7),5.2,6+i*3.7,1.4);g.fill();});
+  g.lineWidth=3.3;g.lineCap="round";g.strokeStyle=ink;
+  [6.2,11.6,17].forEach(r=>{g.beginPath();g.arc(434,74,r,-Math.PI*.75,-Math.PI*.25);g.stroke();});
+  g.beginPath();g.arc(434,72.4,2.4,0,7);g.fill();
+  g.lineWidth=2;g.strokeStyle="rgba(13,13,13,.45)";g.beginPath();g.roundRect(458,54.5,36,18.5,6);g.stroke();
+  g.fillStyle=ink;g.beginPath();g.roundRect(460.6,57.1,30.8,13.3,3.6);g.fill();g.beginPath();g.roundRect(495.6,60.5,2.6,6.5,1.2);g.fill();
   /* a white floating button or card with a soft shadow, as in the app */
   const card=(x,y,cw,ch,r)=>{
     g.save();g.shadowColor="rgba(0,0,0,.13)";g.shadowBlur=22;g.shadowOffsetY=5;
@@ -408,6 +409,8 @@ function drawPhone(g,w,h,photo=false,press=0){
   g.strokeStyle=ink;g.lineWidth=3.4;g.lineCap="round";
   g.beginPath();g.moveTo(43,126);g.lineTo(54,126);g.moveTo(43,138);g.lineTo(60,138);g.stroke();
   g.fillStyle="#a4d82b";g.beginPath();g.arc(63,123,5.4,0,7);g.fill();
+  /* the app's name, top centre */
+  g.fillStyle=ink;g.textAlign="center";g.font=`600 27px ${FONT}`;g.fillText(L.phoneTitle,w/2,133);
   card(386,104,130,56,28);
   g.strokeStyle=ink;g.lineWidth=3.2;
   [[407,7],[415,13],[423,9],[431,4]].forEach(([x,hh])=>{g.beginPath();g.moveTo(x,132-hh);g.lineTo(x,132+hh);g.stroke();});
