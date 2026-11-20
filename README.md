@@ -2,7 +2,7 @@
 
 An interactive 3D simulation of what happens between hitting **Send** in an AI chat and getting the answer back. Made for people with no background in the internet or AI.
 
-You follow one message, shown as a glowing envelope, through six stops. A clock in the corner shows the seconds so far out of 20, the total from Send to answer in this example.
+It opens on a title screen with a small 3D model of the whole trip, then you follow one message, shown as a glowing envelope, through six stops. A clock in the corner shows the seconds so far out of 20, the total from Send to answer in this example.
 
 1. **Your phone**: the words become 1s and 0s, then get locked.
 2. **Through the air**: radio waves to the cell tower, which turns them into light.
@@ -36,6 +36,7 @@ An internet connection is needed: the 3D engine, textures and models are loaded 
 - `js/hand.js`: the 3D fallback for the phone grip.
 - `js/nature.js`: fir trees built from real twig and bark photos, scattered plants and rocks, clouds.
 - `js/city.js`: the towns at each end of the trip.
+- `js/intro.js`: the opening screen's small 3D model of the whole trip.
 - `js/main.js`: the 3D world, the story steps and the controls.
 
 ## Controls

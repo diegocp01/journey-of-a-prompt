@@ -12,6 +12,7 @@ import {createHand,HP} from './hand.js';
 import {createPhotoGrip} from './phone-grip.js';
 import {createForest,scatter,createClouds,tickNature} from './nature.js';
 import {createCity} from './city.js';
+import {createIntro,INTRO_AT} from './intro.js';
 
 /* =====================================================================
    COPY
@@ -226,6 +227,9 @@ function glowTex(){
   ct.redraw();return ct.tex;
 }
 const GLOW=glowTex();
+/* the opening screen's little 3D model of the whole trip (see intro.js) */
+const introFx=createIntro(scene,GLOW);
+let introOn=true;
 const tappables=[],placed={},LAMP_ROT=0;
 function tap(obj,can,fn){obj.traverse(o=>{if(o.isMesh){o.userData.can=can;o.userData.tap=fn;tappables.push(o);}});}
 const stopTap=i=>[()=>current===i&&!done&&!busy,()=>mainAction()];
@@ -261,6 +265,7 @@ function setShadowExt(e){if(e===shadowExt) return;shadowExt=e;const c=sun.shadow
 const fill=new THREE.PointLight(0xcfe0ff,0,60,1.6);scene.add(fill);
 
 const ZONES={
+  intro:{fog:0x060a1c,den:.014,sun:1.1,hemi:.75,fill:0,exp:1.02,env:.55},
   out:{fog:0xb9d3ea,den:.0026,sun:1.9,hemi:1.5,fill:0,exp:.95,env:.6},
   room:{fog:0xb9d3ea,den:.0026,sun:.55,hemi:1.25,fill:0,exp:.92,env:.5},
   sea:{fog:0x050d38,den:.026,sun:.75,hemi:.5,fill:10,exp:1.05,env:.12},
@@ -271,6 +276,7 @@ const ZONES={
 const zoneCur={fog:new THREE.Color(0xb9d3ea),den:.0026,sun:.55,hemi:1.25,fill:0,exp:.92,env:.5};
 const zoneCol=new THREE.Color();
 function zoneOf(p){
+  if(p.x<-900) return "intro";
   if(p.x>1900) return "space";
   if(p.x>900) return "model";
   if(p.x>300.3&&p.x<400&&Math.abs(p.z)<25&&p.y<5) return "dc";
@@ -1464,6 +1470,7 @@ const actions=[
 
 function go(i,cut){
   if(i<0||i>HOME) return;
+  introOn=false;
   const cinematic=!cut&&i===current+1,wasGlobe=globeOn;
   clearTasks();
   done=false;replayed=false;subNote="";sub=0;busy=true;beat=-1;item=0;fin=0;boost=1.5;
@@ -1516,6 +1523,7 @@ function runAction(){
   at(dur,()=>{done=true;busy=false;stepping=false;setTimer(tm[tm.length-1]);renderHUD();});
 }
 function mainAction(){
+  if(introOn){if(!busy) go(0,true);return;}
   if(waiting){release();return;}
   if(busy){if(clock>=openAt) skipAhead();return;}
   if(current===MODEL){sub<4?setSub(sub+1):go(HOME);return;}
@@ -1523,7 +1531,7 @@ function mainAction(){
     if(current===0){busy=true;renderHUD();tween(0,.4,p=>setThumb(p),ease);tween(.3,.42,p=>{tapFx=p;redrawPhone();});at(.74,()=>{tapFx=0;runAction();});tween(.8,.4,p=>setThumb(1-p),ease);return;}
     runAction();return;
   }
-  if(current===HOME){replayed?go(0,true):replay();return;}
+  if(current===HOME){if(replayed){busy=true;renderHUD();fade(showIntro);}else replay();return;}
   go(current+1);
 }
 /* the closing: one second, then the 1858 comparison, then who owns it all */
@@ -1535,8 +1543,24 @@ function finale(){
 }
 let liveTimer=null;
 function back(){
+  if(introOn) return;
   if(current===MODEL){sub>0?setSub(sub-1):go(3,true);return;}
+  if(current===0&&beat<0){busy=true;renderHUD();fade(showIntro);return;}
   go(beat>=0?current:current-1,true);
+}
+/* the opening screen: only the title, the model of the trip, and Start */
+function showIntro(){
+  clearTasks();
+  introOn=true;current=0;sub=0;subNote="";done=false;replayed=false;busy=false;beat=-1;item=0;fin=0;boost=1;
+  hideGlobe();resetStop(0);heroVis=0;heroScaleOverride=null;
+  introCam(true);showTimer(0);renderHUD();
+}
+function introCam(snap){
+  const port=camera.aspect<1;
+  /* far enough back that the whole model fits, whatever the window's shape */
+  const z=port?33:Math.max(18.5,31/camera.aspect);
+  camBase.set(INTRO_AT.x+.2,port?5.6:3.6+(z-18.5)*.1,z);lookGoal.set(INTRO_AT.x+.1,port?2.6:2.1,0);
+  if(snap) lookCur.copy(lookGoal);
 }
 function replay(){
   clearTasks();
@@ -1562,6 +1586,16 @@ let auto=false,capKey="",capTitle="",capT0=0,capDur=4,enT0=0,wasEn=false,lastP=-
 const itemHTML=(it,cls="")=>Array.isArray(it)?`<div class="stat"><b>${it[0]}</b><span>${it[1]}</span></div>`:`<p class="ln ${cls}">${it}</p>`;
 /* the caption is a title plus ONE short line (or one big number) at a time */
 function renderHUD(){
+  $("caption").classList.toggle("intro",introOn);
+  if(introOn){
+    const html=`<h2>${ui.introTitle}</h2>${itemHTML(ui.introSay)}`;
+    if(html!==capKey){capKey=html;capTitle=ui.introTitle;$("caption").innerHTML=html;}
+    $("chapter").innerHTML=`<b class="scr">1 / 22</b><span>${ui.introName}</span>`;
+    const mb=$("mainBtn");mb.textContent=ui.start;mb.disabled=busy;mb.classList.toggle("act",!busy);
+    $("backBtn").disabled=true;
+    document.querySelectorAll(".dot").forEach(d=>{d.classList.remove("active","visited");});
+    stageFit();return;
+  }
   const n=ui.stops.length,stop=ui.stops[current],isModel=current===MODEL;
   const b=!isModel&&beat>=0?stop.beats[beat]:null;
   const nextName=i=>`${ui.nextStep}: ${ui.stops[i].name} →`;
@@ -1593,13 +1627,13 @@ function renderHUD(){
     const need=rate<1?Math.max(3,1+nw/3):Math.max(2.4,.8+nw/3.6);
     capT0=amb;capDur=need+.5;readUntil=amb+need;
   }
-  /* screen number: 1 is the phone at the start, and every tap of the main button adds one */
-  const SCR0=[0,3,5,9,12,18],scr=SCR0[current]+1+(isModel?sub+(sub===4&&!(stepping&&gates.length)?1:0):beat+1+(current===HOME&&(replayed||realSpeed)?1:0));
-  $("chapter").innerHTML=`<b class="scr">${scr} / 21</b><span>${ui.kicker(current+1,n,stop.name)}</span>`;
+  /* screen number: 1 is the opening screen, 2 the phone, and every tap of the main button adds one */
+  const SCR0=[0,3,5,9,12,18],scr=SCR0[current]+2+(isModel?sub+(sub===4&&!(stepping&&gates.length)?1:0):beat+1+(current===HOME&&(replayed||realSpeed)?1:0));
+  $("chapter").innerHTML=`<b class="scr">${scr} / 22</b><span>${ui.kicker(current+1,n,stop.name)}</span>`;
   const mb=$("mainBtn");mb.textContent=labelTxt;mb.disabled=busy&&!waiting&&!open;mb.classList.toggle("act",act&&!mb.disabled);
   if(!mb.disabled&&!wasEn) enT0=amb;
   wasEn=!mb.disabled;
-  $("backBtn").disabled=current===0&&beat<0;$("backBtn").setAttribute("aria-label",ui.back);
+  $("backBtn").disabled=false;$("backBtn").setAttribute("aria-label",ui.back);
   document.querySelectorAll(".dot").forEach((d,k)=>{d.classList.toggle("active",k===current);d.classList.toggle("visited",k<current);});
   stageFit();
 }
@@ -1663,6 +1697,7 @@ function frame(){
 }
 function step(dt,draw){
   amb+=dt;tickNature(amb);
+  if(introOn){introFx.tick(amb);introCam(false);}
   if(!waiting){
     let nc=clock+dt*(realSpeed?1:Math.min(1,rate*boost));
     if(softs.length&&nc>=softs[0]){if(amb<readUntil) nc=Math.max(clock,softs[0]-.0005);else softs.shift();}
@@ -1788,6 +1823,6 @@ function step(dt,draw){
 /* boot */
 applyLanguage();
 placeAt(0);
-renderHUD();
+showIntro();
 frame();
-window.__journey={setThumb:p=>setThumb(p),tap:p=>{tapFx=p;redrawPhone();},HP,hand:()=>hand?.rig()??photoGrip,showGlobe,hideGlobe,renderer,composer,sky:()=>skyInfo,modelInfo,placed,camBase,lookGoal,lookCur,scene,THREE,go,mainAction,setSub,tick:(sec)=>{for(let t=0;t<sec;t+=.04) step(.04,false);step(.04,true);},state:()=>({auto,capDur,item,fin,globeOn,current,sub,done,busy,replayed,beat,waiting,stepping,gates:gates.length,clock,cam:camBase.toArray(),hero:hero.position.toArray()})};
+window.__journey={intro:()=>introOn,showIntro,setThumb:p=>setThumb(p),tap:p=>{tapFx=p;redrawPhone();},HP,hand:()=>hand?.rig()??photoGrip,showGlobe,hideGlobe,renderer,composer,sky:()=>skyInfo,modelInfo,placed,camBase,lookGoal,lookCur,scene,THREE,go,mainAction,setSub,tick:(sec)=>{for(let t=0;t<sec;t+=.04) step(.04,false);step(.04,true);},state:()=>({auto,capDur,item,fin,globeOn,current,sub,done,busy,replayed,beat,waiting,stepping,gates:gates.length,clock,cam:camBase.toArray(),hero:hero.position.toArray()})};
