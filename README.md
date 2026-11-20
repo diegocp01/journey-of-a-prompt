@@ -15,12 +15,12 @@ The screen shows a title and one short line at a time, so the picture does the e
 
 ## Run it
 
-There is no build step. Serve the folder with any static server:
+There is no build step. Start the local preview with Python 3.9 or newer:
 
 ```bash
 git clone https://github.com/diegocp01/journey-of-a-prompt.git
 cd journey-of-a-prompt
-python3 -m http.server 4173
+python3 scripts/serve.py 4173
 ```
 
 Then open <http://localhost:4173>.
@@ -46,6 +46,13 @@ An internet connection is needed: the 3D engine, textures and models are loaded 
 - **‹** (or left arrow): go back one step.
 - Progress bar, bottom left: jump to any stop.
 - Spanish: add `?lang=es` to the address.
+- **Listen** turns on the recorded AI guide for the current screen and each screen you visit. **↺** repeats the current clip, and **Mute** switches narration off.
+
+## Recorded narration
+
+The 22 English and 22 Spanish MP3s ship in `assets/narration/`. Listening uses these files directly. The scripts for the recordings are in `scripts/narration.json`.
+
+To replace a recording, edit its script and remove that clip’s MP3. Run `node --env-file=.env.local scripts/generate-narration.mjs` with Node 22+ and a local `OPENAI_API_KEY`. The generator uses OpenAI text to speech and skips clips that already exist. For hosting, publish `index.html`, `assets/`, `js/`, and `css/`.
 
 ## Simplifications
 
