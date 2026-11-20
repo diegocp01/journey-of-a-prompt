@@ -60,15 +60,18 @@ function runTasks(){
   }
   tasks=tasks.filter(t=>!t.dead);
 }
-/* the main button turns on as soon as the picture is done (openAt), even if lines of text are still to come:
-   a tap then shows the next line right away, or moves on when there is none left */
+/* the main button turns on as soon as the picture is done (openAt), even if lines of text are still to come.
+   Lines keep appearing on their own while you wait; a tap moves straight on to the next screen. */
 const lineLimit=()=>gates.length?gates[0].t:endAt;
 const pendingLine=()=>softs.length>0&&softs[0]<=lineLimit()+.002;
 function jumpTo(t){while(clock<t){clock=Math.min(t,clock+.05);runTasks();}}
+/* one tap always moves on to the next screen, even if some lines of text have not come up yet */
 function skipAhead(){
-  if(pendingLine()){const t=softs.shift();readUntil=0;jumpTo(t+.001);renderHUD();return;}
-  if(gates.length){jumpTo(gates[0].t);waiting=true;release();return;}
-  jumpTo(endAt+.001);if(!busy) mainAction();
+  readUntil=0;
+  if(gates.length){const t=gates[0].t;softs=softs.filter(x=>x>t);jumpTo(t);waiting=true;release();return;}
+  const wasStep=stepping;
+  softs=[];jumpTo(endAt+.001);
+  if(!busy&&wasStep) mainAction(); else renderHUD();
 }
 
 /* =====================================================================
@@ -379,8 +382,17 @@ function drawPhone(g,w,h,photo=false,press=0){
     rr(g,30,h-290,w-60,200,50,photo?"rgba(255,255,255,.14)":"#f4f4f4",photo?"rgba(75,83,96,.15)":"#e2e2e2");
     g.fillStyle=ink;g.textAlign="left";g.font=`600 42px ${FONT}`;
     g.fillText(lines[0],57,h-220,sendX-122);g.fillText(lines[1],57,h-162,sendX-122);
-    g.save();g.translate(sendX,sendY);g.scale(1-.09*press,1-.09*press);
-    g.beginPath();g.arc(0,0,52,0,Math.PI*2);g.fillStyle=press>.5?"#0069d5":"#0a84ff";g.fill();
+    /* tap feedback: as the thumb lands the button sinks and darkens, and a ripple spreads out from it */
+    const down=smooth(.7,1,press);
+    if(tapFx>0&&tapFx<1){
+      const q=1-Math.pow(1-tapFx,2);
+      g.save();g.translate(sendX,sendY);
+      g.beginPath();g.arc(0,0,52+92*q,0,Math.PI*2);g.fillStyle=`rgba(10,132,255,${(.2*(1-q)).toFixed(3)})`;g.fill();
+      g.beginPath();g.arc(0,0,52+92*q,0,Math.PI*2);g.strokeStyle=`rgba(10,132,255,${(.75*(1-q)).toFixed(3)})`;g.lineWidth=3+9*(1-q);g.stroke();
+      g.restore();
+    }
+    g.save();g.translate(sendX,sendY);g.scale(1-.13*down,1-.13*down);
+    g.beginPath();g.arc(0,0,52,0,Math.PI*2);g.fillStyle=`rgb(${Math.round(10-10*down)},${Math.round(132-62*down)},${Math.round(255-95*down)})`;g.fill();
     g.strokeStyle="#fff";g.lineWidth=11;g.lineCap="round";g.lineJoin="round";
     g.beginPath();g.moveTo(0,26);g.lineTo(0,-26);g.moveTo(-25,-2);g.lineTo(0,-27);g.lineTo(25,-2);g.stroke();g.restore();
     if(!photo) glare(g,w,h);
@@ -403,7 +415,7 @@ function drawPhone(g,w,h,photo=false,press=0){
 }
 const phoneTex=canvasTex(540,1166,drawPhone);
 let photoGrip,hand;
-let thumbPress=0;
+let thumbPress=0,tapFx=0;
 function redrawPhone(){
   if(photoGrip?.ready) photoGrip.redraw(thumbPress);
   else phoneTex.redraw();
@@ -1194,7 +1206,7 @@ function flash(cb){const f=$("fade");f.style.background="#e9e2ff";f.style.opacit
    STOP LOGIC
    ===================================================================== */
 function resetStop(i){
-  if(i===0||i===HOME) thumbPress=0;
+  if(i===0||i===HOME) thumbPress=tapFx=0;
   if(i===0){phoneState={mode:"draft",bits:null,cipher:null,words:[]};redrawPhone();}
   if(i===1){towerCab.m.emissiveIntensity=.6;towerCab.l.intensity=0;}
   if(i===2) packets.forEach(p=>{p.visible=false;p.scale.setScalar(1);});
@@ -1348,7 +1360,7 @@ function mainAction(){
   if(busy){if(clock>=openAt) skipAhead();return;}
   if(current===MODEL){sub<4?setSub(sub+1):go(HOME);return;}
   if(!done){
-    if(current===0){busy=true;renderHUD();tween(0,.35,p=>setThumb(p),ease);at(.55,runAction);tween(.6,.4,p=>setThumb(1-p),ease);return;}
+    if(current===0){busy=true;renderHUD();tween(0,.4,p=>setThumb(p),ease);tween(.3,.42,p=>{tapFx=p;redrawPhone();});at(.74,()=>{tapFx=0;runAction();});tween(.8,.4,p=>setThumb(1-p),ease);return;}
     runAction();return;
   }
   if(current===HOME){replayed?go(0,true):replay();return;}
@@ -1396,7 +1408,7 @@ function renderHUD(){
   let title,body,ticks="",labelTxt,act=false;
   const g=stepping&&gates[0],open=busy&&!waiting&&clock>=openAt,more=open&&pendingLine();
   if(g){labelTxt=(g.label||ui.cont)+" ▸";act=waiting||open;}
-  else if(more){labelTxt=ui.cont+" ▸";act=true;}
+  else if(more&&current===HOME&&replayed){labelTxt=ui.cont+" ▸";act=true;}
   else if(isModel) labelTxt=sub<4?`${ui.nextStep}: ${ui.subs[sub+1].name} →`:nextName(HOME);
   else if(!done&&!stepping){labelTxt=stop.action;act=true;}
   else if(current===HOME) labelTxt=replayed?ui.restart:ui.replay;
@@ -1618,4 +1630,4 @@ applyLanguage();
 placeAt(0);
 renderHUD();
 frame();
-window.__journey={setThumb:p=>setThumb(p),HP,hand:()=>hand?.rig()??photoGrip,showGlobe,hideGlobe,renderer,composer,sky:()=>skyInfo,modelInfo,placed,camBase,lookGoal,lookCur,scene,THREE,go,mainAction,setSub,tick:(sec)=>{for(let t=0;t<sec;t+=.04) step(.04,false);step(.04,true);},state:()=>({auto,capDur,item,fin,globeOn,current,sub,done,busy,replayed,beat,waiting,stepping,gates:gates.length,clock,cam:camBase.toArray(),hero:hero.position.toArray()})};
+window.__journey={setThumb:p=>setThumb(p),tap:p=>{tapFx=p;redrawPhone();},HP,hand:()=>hand?.rig()??photoGrip,showGlobe,hideGlobe,renderer,composer,sky:()=>skyInfo,modelInfo,placed,camBase,lookGoal,lookCur,scene,THREE,go,mainAction,setSub,tick:(sec)=>{for(let t=0;t<sec;t+=.04) step(.04,false);step(.04,true);},state:()=>({auto,capDur,item,fin,globeOn,current,sub,done,busy,replayed,beat,waiting,stepping,gates:gates.length,clock,cam:camBase.toArray(),hero:hero.position.toArray()})};
