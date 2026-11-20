@@ -1417,8 +1417,10 @@ const actions=[
     tween(0,.4,p=>{heroVis=1-p;},ease);
     tween(0,.4,p=>{waveOn=p;});
     for(let n=0;n<12;n++) at(.1+n*.28,()=>emitWave(hero.position,1.5,1.5));
-    travel({env:[[20,14,-3],[38,26,-7],[40.5,27.6,-6.5]],cam:[[15,12,1],[32,25.5,-2.5],[36.2,29,-3.2]],look:[44,26.5,-8],dur:3.4});
-    at(3.4,()=>{showHero(1,.7);tween(0,.5,p=>{waveOn=1-p;});[0,.3,.6,1.2,1.8].forEach(d=>at(d,()=>emitWave(hero.position,3,1.1)));});
+    /* one steady shot: the camera flies right behind the waves, on the same line toward the tower,
+       so they stay in the middle of the picture with the tower ahead (it used to swing off to one side) */
+    travel({env:[[20,14,-3],[38,26,-7],[40.5,27.6,-6.5]],cam:[[14.4,11.3,-.9],[32.4,23.3,-4.9],[36.2,29,-3.2]],look:[44,26.5,-8],dur:3.4});
+    at(3.4,()=>{showHero(1,.7);tween(0,.5,p=>{waveOn=1-p;});[0,.4].forEach(d=>at(d,()=>emitWave(hero.position,2.2,1)));});
     travel({delay:5.8,env:[[42.6,14,-7.4],[44.3,1.7,-4.3]],cam:[[40,16,-2],[40.6,3.6,-.4]],look:[45.4,1,-5.4],dur:1.5});
     tween(7.4,.9,p=>{const e=Math.sin(Math.PI*Math.min(1,p*1.15));towerCab.m.emissiveIntensity=.6+4.5*e+1.2*p;towerCab.l.intensity=40*e+8*p;});
     travel({delay:7.7,env:[[44.8,.9,-5.5],[47.8,.5,-5.45]],dur:.9,follow:false});
@@ -1825,7 +1827,8 @@ function step(dt,draw){
   beacon.material.emissiveIntensity=Math.sin(amb*4)>0?4.5:.5;
   blinkers.forEach(b=>{b.material.emissiveIntensity=Math.sin(amb*6+b.userData.blink*1.7)>0?3:.4;});
   towerRing-=dt;
-  if(towerRing<0&&!globeOn&&camera.position.x<120&&camera.position.distanceTo(tmpV.set(42,29,-8))>30){towerRing=1.1;emitRing(V(42,29,-8),UP,16,2.6);}
+  /* the tower's own idle rings pause while the message is on its way, so only its waves are on screen */
+  if(towerRing<0&&!globeOn&&!(current===1&&stepping)&&camera.position.x<120&&camera.position.distanceTo(tmpV.set(42,29,-8))>30){towerRing=1.1;emitRing(V(42,29,-8),UP,16,2.6);}
   rings.forEach(r=>{
     if(!r.m.visible) return;
     r.life+=dt/r.dur;
