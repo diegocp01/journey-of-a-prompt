@@ -369,65 +369,99 @@ createCity(scene,[[-70,112,-150,-58],[-70,112,58,150],[256,440,-160,-64],[256,44
 function glare(g,w,h){const gr=g.createLinearGradient(w*.1,0,w*.95,h*.55);gr.addColorStop(0,"rgba(255,255,255,0)");gr.addColorStop(.46,"rgba(255,255,255,0)");gr.addColorStop(.5,"rgba(190,215,255,.16)");gr.addColorStop(.62,"rgba(190,215,255,.05)");gr.addColorStop(.63,"rgba(255,255,255,0)");g.fillStyle=gr;g.fillRect(0,0,w,h);}
 let phoneState={mode:"draft",bits:null,words:[]};
 function drawPhone(g,w,h,photo=false,press=0){
-  const s=phoneState,lines=s.cipher||s.bits||ui.promptLines,L=ui.labels,ink="#0d0d0d";
+  const s=phoneState,lines=s.cipher||s.bits||ui.promptLines,L=ui.labels,ink="#0d0d0d",soft="#9a9a9a";
   /* black glass with a rounded display, like a modern phone */
   g.save();
   if(!photo){
     g.fillStyle="#000";g.fillRect(0,0,w,h);
     g.beginPath();g.roundRect(15,15,w-30,h-30,64);g.clip();
-    g.fillStyle="#fff";g.fillRect(0,0,w,h);
+    g.fillStyle="#fcfcfc";g.fillRect(0,0,w,h);
   }
-  /* status bar: time, pill cut-out, signal, Wi-Fi, battery */
-  g.textBaseline="middle";g.textAlign="left";g.fillStyle=ink;g.font=`700 31px ${FONT}`;g.fillText("9:41",62,64);
+  /* status bar: time with the location arrow, pill cut-out, signal, Wi-Fi, battery */
+  g.textBaseline="middle";g.textAlign="left";g.fillStyle=ink;g.font=`700 31px ${FONT}`;g.fillText("6:26",58,64);
+  g.beginPath();g.moveTo(143,53);g.lineTo(124,62);g.lineTo(134,65);g.lineTo(137,75);g.closePath();g.fill();
   if(!photo){
     rr(g,w/2-78,40,156,46,23,"#000");
     /* front camera lens inside the island */
     {const cx=w/2+52,cy=63,gr=g.createRadialGradient(cx-3,cy-3,1,cx,cy,11);gr.addColorStop(0,"#3a4d7a");gr.addColorStop(.5,"#141b30");gr.addColorStop(1,"#05070d");g.fillStyle=gr;g.beginPath();g.arc(cx,cy,11,0,7);g.fill();g.fillStyle="rgba(140,170,255,.55)";g.beginPath();g.arc(cx-3.5,cy-3.5,2.6,0,7);g.fill();}
   }
-  [0,1,2,3].forEach(i=>g.fillRect(372+i*11,74-10-i*5,7,10+i*5));
+  g.fillStyle=ink;[0,1,2,3].forEach(i=>g.fillRect(372+i*11,74-10-i*5,7,10+i*5));
   g.lineWidth=5;g.lineCap="round";g.strokeStyle=ink;
   [9,19,29].forEach(r=>{g.beginPath();g.arc(435,76,r,-Math.PI*.75,-Math.PI*.25);g.stroke();});
   g.beginPath();g.arc(435,76,3,0,7);g.fill();
   g.lineWidth=3;g.strokeStyle="rgba(13,13,13,.45)";g.beginPath();g.roundRect(462,52,44,24,7);g.stroke();
   g.fillStyle=ink;g.beginPath();g.roundRect(465,55,34,18,4);g.fill();g.fillRect(508,60,3,8);
-  /* app bar */
-  g.lineWidth=5;g.strokeStyle=ink;g.beginPath();g.moveTo(42,138);g.lineTo(82,138);g.moveTo(42,154);g.lineTo(68,154);g.stroke();
-  g.beginPath();g.roundRect(462,128,34,34,8);g.stroke();g.beginPath();g.moveTo(474,152);g.lineTo(504,122);g.stroke();
-  g.textAlign="center";g.font=`700 38px ${FONT}`;g.fillText(L.phoneTitle,w/2,146);
+  /* a white floating button or card with a soft shadow, as in the app */
+  const card=(x,y,cw,ch,r)=>{
+    g.save();g.shadowColor="rgba(0,0,0,.13)";g.shadowBlur=22;g.shadowOffsetY=5;
+    g.beginPath();g.roundRect(x,y,cw,ch,r);g.fillStyle=photo?"rgba(255,255,255,.78)":"#fff";g.fill();g.restore();
+    g.beginPath();g.roundRect(x,y,cw,ch,r);g.lineWidth=1.5;g.strokeStyle="rgba(0,0,0,.09)";g.stroke();
+  };
+  /* top left: the menu button with its green dot. top right: voice and private-chat buttons */
+  card(25,103,58,58,29);
+  g.strokeStyle=ink;g.lineWidth=3.4;g.lineCap="round";
+  g.beginPath();g.moveTo(43,126);g.lineTo(54,126);g.moveTo(43,138);g.lineTo(60,138);g.stroke();
+  g.fillStyle="#a4d82b";g.beginPath();g.arc(63,123,5.4,0,7);g.fill();
+  card(386,104,130,56,28);
+  g.strokeStyle=ink;g.lineWidth=3.2;
+  [[407,7],[415,13],[423,9],[431,4]].forEach(([x,hh])=>{g.beginPath();g.moveTo(x,132-hh);g.lineTo(x,132+hh);g.stroke();});
+  g.lineWidth=2.8;g.lineJoin="round";
+  g.beginPath();g.moveTo(471,131);g.lineTo(501,131);g.moveTo(476,131);g.lineTo(479,119);g.lineTo(493,119);g.lineTo(496,131);g.stroke();
+  g.beginPath();g.arc(479,141,5,0,7);g.moveTo(498,141);g.arc(493,141,5,0,7);g.moveTo(484,141);g.lineTo(488,141);g.stroke();
+  /* home bar */
   g.fillStyle="#111";g.beginPath();g.roundRect(w/2-92,h-40,184,9,5);g.fill();
+  /* the row at the bottom of the message box: plus, the model's name, and a button on the right */
+  const tools=(y)=>{
+    g.strokeStyle=ink;g.lineWidth=3.2;g.lineCap="round";
+    g.beginPath();g.moveTo(34,y);g.lineTo(58,y);g.moveTo(46,y-12);g.lineTo(46,y+12);g.stroke();
+    g.textAlign="left";g.font=`600 21px ${FONT}`;g.fillStyle=ink;g.fillText(L.model,88,y+1);
+    const mw=g.measureText(L.model).width;g.font=`500 21px ${FONT}`;g.fillStyle=soft;g.fillText(L.effort,88+mw+7,y+1);
+  };
+  const mic=(x,y)=>{
+    g.strokeStyle=ink;g.lineWidth=3;g.lineCap="round";
+    g.beginPath();g.roundRect(x-6,y-15,12,21,6);g.stroke();
+    g.beginPath();g.arc(x,y-2,12,.15*Math.PI,.85*Math.PI);g.stroke();
+    g.beginPath();g.moveTo(x,y+10);g.lineTo(x,y+16);g.stroke();
+  };
   if(s.mode==="draft"){
-    g.fillStyle="#9a9a9a";g.font=`600 40px ${FONT}`;g.fillText(L.ask,w/2,h*.42);
-    const sendX=photo?378:w-104,sendY=h-190;
-    rr(g,30,h-290,w-60,200,50,photo?"rgba(255,255,255,.14)":"#f4f4f4",photo?"rgba(75,83,96,.15)":"#e2e2e2");
-    g.fillStyle=ink;g.textAlign="left";g.font=`600 42px ${FONT}`;
-    g.fillText(lines[0],57,h-220,sendX-122);g.fillText(lines[1],57,h-162,sendX-122);
+    /* greeting in the middle, as on the app's empty chat */
+    g.textAlign="center";g.fillStyle="#111";g.font=`500 28px ${FONT}`;g.fillText(L.greet,w/2,352);
+    g.fillStyle="#5b5b5b";g.fillText(L.greet2,w/2,392);
+    /* the message box with the typed question; the Send button replaces the microphone once there is text */
+    const sendX=photo?378:w-64,sendY=h-190;
+    card(16,sendY-126,w-32,172,34);
+    g.fillStyle=ink;g.textAlign="left";g.font=`500 33px ${FONT}`;
+    g.fillText(lines[0],42,sendY-86,sendX-70);g.fillText(lines[1],42,sendY-46,sendX-110);
+    tools(sendY);
     /* tap feedback: as the thumb lands the button sinks and darkens, and a ripple spreads out from it */
-    const down=smooth(.7,1,press);
+    const down=smooth(.7,1,press),R=37;
     if(tapFx>0&&tapFx<1){
       const q=1-Math.pow(1-tapFx,2);
       g.save();g.translate(sendX,sendY);
-      g.beginPath();g.arc(0,0,52+92*q,0,Math.PI*2);g.fillStyle=`rgba(10,132,255,${(.2*(1-q)).toFixed(3)})`;g.fill();
-      g.beginPath();g.arc(0,0,52+92*q,0,Math.PI*2);g.strokeStyle=`rgba(10,132,255,${(.75*(1-q)).toFixed(3)})`;g.lineWidth=3+9*(1-q);g.stroke();
+      g.beginPath();g.arc(0,0,R+100*q,0,Math.PI*2);g.fillStyle=`rgba(10,132,255,${(.2*(1-q)).toFixed(3)})`;g.fill();
+      g.beginPath();g.arc(0,0,R+100*q,0,Math.PI*2);g.strokeStyle=`rgba(10,132,255,${(.75*(1-q)).toFixed(3)})`;g.lineWidth=3+9*(1-q);g.stroke();
       g.restore();
     }
     g.save();g.translate(sendX,sendY);g.scale(1-.13*down,1-.13*down);
-    g.beginPath();g.arc(0,0,52,0,Math.PI*2);g.fillStyle=`rgb(${Math.round(10-10*down)},${Math.round(132-62*down)},${Math.round(255-95*down)})`;g.fill();
-    g.strokeStyle="#fff";g.lineWidth=11;g.lineCap="round";g.lineJoin="round";
-    g.beginPath();g.moveTo(0,26);g.lineTo(0,-26);g.moveTo(-25,-2);g.lineTo(0,-27);g.lineTo(25,-2);g.stroke();g.restore();
+    g.beginPath();g.arc(0,0,R,0,Math.PI*2);g.fillStyle=`rgb(${Math.round(10-10*down)},${Math.round(132-62*down)},${Math.round(255-95*down)})`;g.fill();
+    g.strokeStyle="#fff";g.lineWidth=8;g.lineCap="round";g.lineJoin="round";
+    g.beginPath();g.moveTo(0,18);g.lineTo(0,-18);g.moveTo(-17,-2);g.lineTo(0,-19);g.lineTo(17,-2);g.stroke();g.restore();
     if(!photo) glare(g,w,h);
     g.restore();return;
   }
-  rr(g,w-30-410,214,410,156,48,s.cipher?"#1c2540":"#0a84ff");
-  if(s.cipher){g.font="54px sans-serif";g.fillText("🔒",w-30-410-44,294);}
-  g.fillStyle=s.cipher?"#9fb4ff":"#fff";g.font=`600 42px ${s.bits||s.cipher?MONO:FONT}`;g.fillText(lines[0],w-235,264);g.fillText(lines[1],w-235,320);
-  rr(g,30,h-190,w-60,104,52,"#f4f4f4","#e2e2e2");
-  g.fillStyle="#9a9a9a";g.textAlign="left";g.font=`600 38px ${FONT}`;g.fillText(L.ask,72,h-138);
+  /* after sending: the question as a bubble on the right, the answer below it, an empty message box at the bottom */
+  rr(g,w-24-372,196,372,128,40,s.cipher?"#1c2540":"#0a84ff");
+  if(s.cipher){g.font="50px sans-serif";g.textAlign="center";g.fillText("🔒",w-24-372-40,262);}
+  g.textAlign="center";g.fillStyle=s.cipher?"#9fb4ff":"#fff";g.font=`600 36px ${s.bits||s.cipher?MONO:FONT}`;g.fillText(lines[0],w-24-186,238,340);g.fillText(lines[1],w-24-186,284,340);
+  card(16,h-262,w-32,118,34);
+  g.fillStyle=soft;g.textAlign="left";g.font=`500 30px ${FONT}`;g.fillText(L.ask,42,h-226);
+  tools(h-180);mic(w-48,h-180);
   if(s.mode==="answer"){
-    g.font=`500 42px ${FONT}`;
+    g.font=`500 38px ${FONT}`;g.textAlign="left";
     const out=[""];
-    s.words.forEach(wd=>{const cur=out[out.length-1],t=cur?cur+" "+wd:wd;if(cur&&g.measureText(t).width>400) out.push(wd); else out[out.length-1]=t;});
+    s.words.forEach(wd=>{const cur=out[out.length-1],t=cur?cur+" "+wd:wd;if(cur&&g.measureText(t).width>430) out.push(wd); else out[out.length-1]=t;});
     if(!s.words.length) out[0]="…";
-    g.fillStyle=ink;out.forEach((l,i)=>g.fillText(l,44,440+i*58));
+    g.fillStyle=ink;out.forEach((l,i)=>g.fillText(l,40,392+i*54));
   }
   if(!photo) glare(g,w,h);
   g.restore();
