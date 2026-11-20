@@ -37,6 +37,7 @@ An internet connection is needed: the 3D engine, textures and models are loaded 
 - `js/nature.js`: fir trees built from real twig and bark photos, scattered plants and rocks, clouds.
 - `js/city.js`: the towns at each end of the trip.
 - `js/intro.js`: the opening screen's small 3D model of the whole trip.
+- `js/detail.js`: extra detail for the room, the sea floor, the data hall and the inside of the AI.
 - `js/main.js`: the 3D world, the story steps and the controls.
 
 ## Controls

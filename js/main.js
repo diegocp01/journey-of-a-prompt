@@ -13,6 +13,7 @@ import {createPhotoGrip} from './phone-grip.js';
 import {createForest,scatter,createClouds,tickNature} from './nature.js';
 import {createCity} from './city.js';
 import {createIntro,INTRO_AT} from './intro.js';
+import {roomDetail,seaDetail,hallDetail,modelDetail} from './detail.js';
 
 /* =====================================================================
    COPY
@@ -108,7 +109,7 @@ function pbr(mat,id,o={}){
   return mat;
 }
 /* a model's shape file sits in the folder of its largest size; most go up to 8k, these stop at 4k */
-const BIN_RES={grass_medium_02:"4k",shrub_03:"4k"};
+const BIN_RES={grass_medium_02:"4k",shrub_03:"4k",stationery_supplies:"4k"};
 const assetManager=new THREE.LoadingManager();
 assetManager.setURLModifier(url=>{
   let m=url.match(/Models\/gltf\/1k\/([^/]+)\/textures\/(.+)$/);if(m) return `${PH}/Models/jpg/1k/${m[1]}/${m[2]}`;
@@ -116,13 +117,15 @@ assetManager.setURLModifier(url=>{
   return url;
 });
 const gltfLoader=new GLTFLoader(assetManager),modelInfo={};
-function model(id,cb){
+function model(id,cb,sizes=["8k","4k","2k","1k"]){
+  /* a model's shape file sits in the folder of its largest size, which differs from model to model: try them in turn */
+  if(!BIN_RES[id]||sizes.length<4) BIN_RES[id]=sizes[0];
   gltfLoader.load(`${PH}/Models/gltf/1k/${id}/${id}_1k.gltf`,g=>{
     g.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
     const b=new THREE.Box3().setFromObject(g.scene);
     modelInfo[id]={min:b.min.toArray().map(v=>+v.toFixed(3)),max:b.max.toArray().map(v=>+v.toFixed(3))};
     cb(g.scene);
-  },undefined,()=>console.warn("model not loaded:",id));
+  },undefined,()=>{if(sizes.length>1) model(id,cb,sizes.slice(1)); else console.warn("model not loaded:",id);});
 }
 /* plants: their leaves are flat cards, cut to shape by a separate black-and-white cut-out picture */
 function plant(id,cb){
@@ -803,7 +806,7 @@ const signTex=canvasTex(1024,150,(g,w,h)=>{
   /* server hall */
   const ledC=["#35ff9a","#35d6ff","#ffb545"],dotsA=[];
   for(let r=0;r<18;r++) for(let k=0;k<2+Math.floor(Math.random()*3);k++) dotsA.push([10+Math.random()*108,8+r*20,ledC[Math.floor(Math.random()*3)]]);
-  const fA=canvasTex(128,368,(g,w,h)=>{g.fillStyle="#0b0e15";g.fillRect(0,0,w,h);for(let r=0;r<18;r++){g.fillStyle="#161c29";g.fillRect(5,3+r*20,w-10,16);}dotsA.forEach(d=>{g.fillStyle=d[2];g.fillRect(d[0],d[1],4,4);});});fA.redraw();
+  const fA=canvasTex(128,368,(g,w,h)=>{g.fillStyle="#0b0e15";g.fillRect(0,0,w,h);for(let r=0;r<18;r++){g.fillStyle="#161c29";g.fillRect(5,3+r*20,w-10,16);g.fillStyle="#0e131d";for(let x=24;x<w-26;x+=5) g.fillRect(x,7+r*20,2,8);g.fillStyle="#3b455a";g.fillRect(8,9+r*20,3,3);g.fillRect(w-11,9+r*20,3,3);}g.strokeStyle="#2a3347";g.lineWidth=4;g.strokeRect(2,2,w-4,h-4);g.fillStyle="#48546e";g.fillRect(w-9,150,4,64);dotsA.forEach(d=>{g.fillStyle=d[2];g.fillRect(d[0],d[1],4,4);});});fA.redraw();
   const fB=canvasTex(128,368,(g,w,h)=>{g.fillStyle="#000";g.fillRect(0,0,w,h);dotsA.forEach(d=>{g.fillStyle=d[2];g.fillRect(d[0],d[1],4,4);});});fB.redraw();
   const side=M(0x0e1119,{r:.5,m:.5,env:.6});
   const front=new THREE.MeshStandardMaterial({map:fA.tex,emissiveMap:fB.tex,emissive:0xffffff,emissiveIntensity:2.6,roughness:.45,metalness:.4,envMapIntensity:.5});
@@ -1698,6 +1701,7 @@ function frame(){
 function step(dt,draw){
   amb+=dt;tickNature(amb);
   if(introOn){introFx.tick(amb);introCam(false);}
+  if(typeof seaTick==="function"){seaTick(amb);modelTick(amb);}
   if(!waiting){
     let nc=clock+dt*(realSpeed?1:Math.min(1,rate*boost));
     if(softs.length&&nc>=softs[0]){if(amb<readUntil) nc=Math.max(clock,softs[0]-.0005);else softs.shift();}
@@ -1821,6 +1825,10 @@ function step(dt,draw){
 }
 
 /* boot */
+/* extra detail for the room, the sea floor, the data hall and the inside of the AI (see detail.js) */
+const H={scene,model,plant,scatter,M,E,bx,cyl,beam,canvasTex,seaY,seaCurves,GLOW,ms};
+roomDetail(H);hallDetail(H);
+const seaTick=seaDetail(H),modelTick=modelDetail(H);
 applyLanguage();
 placeAt(0);
 showIntro();
