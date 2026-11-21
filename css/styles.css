@@ -33,6 +33,15 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:220px;pointer
   text-shadow:0 1px 2px rgba(0,0,0,.45),0 2px 18px rgba(0,0,0,.6);pointer-events:none}
 .caption h2{margin:10px 0 8px;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;font-weight:700;letter-spacing:-.022em;
   font-size:clamp(1.75rem,3.5vw,2.9rem);line-height:1.08;color:#fff;text-wrap:balance}
+/* during the ride inside the cable: a hair next to one glass thread, for size */
+.size-legend{position:fixed;z-index:2;left:50%;bottom:112px;transform:translateX(-50%);display:grid;gap:10px;padding:14px 22px;border-radius:20px;
+  background:rgba(6,14,40,.5);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  color:#e6eeff;font-weight:600;font-size:clamp(.95rem,1.5vw,1.15rem);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .5s}
+.size-legend.on{opacity:1}
+.size-legend div{display:flex;align-items:center;gap:16px}
+.size-legend i{display:block;width:74px;border-radius:9px;flex:none}
+.size-legend .hair{height:9px;background:#9a7653}
+.size-legend .glass{height:3px;background:#bfe9ff;box-shadow:0 0 8px rgba(160,225,255,.9)}
 /* the opening screen has a bigger title */
 .caption.intro{top:72px}
 .caption.intro h2{font-size:clamp(2.1rem,5.4vw,4.3rem);line-height:1.05;margin-bottom:16px;max-width:15em;margin-left:auto;margin-right:auto}
@@ -77,6 +86,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:220px;pointer
   .top{padding:10px 12px}
   .timer{font-size:1.1rem}
   .caption{top:52px}
+  .size-legend{bottom:calc(168px + env(safe-area-inset-bottom))}
   .bottom{flex-direction:column;align-items:stretch;gap:10px;padding:12px 14px calc(14px + env(safe-area-inset-bottom))}
   .dots{width:100%}
   .main-btn{flex:1;white-space:normal}

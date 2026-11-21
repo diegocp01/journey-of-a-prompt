@@ -6,7 +6,7 @@ It opens on a title screen with a small 3D model of the whole trip, then you fol
 
 1. **Your phone**: the words become 1s and 0s, then get locked.
 2. **Through the air**: radio waves to the cell tower, which turns them into light.
-3. **The internet**: find the address, hop from machine to machine, travel as light through glass, cross the ocean floor.
+3. **The internet**: ride inside a glass thread as the message itself, then cross the ocean floor.
 4. **Data center**: the front door, then the GPU chips where the AI lives.
 5. **Inside the AI**: split the words, give them meaning, link them, score the next word, repeat.
 6. **Trip home**: the whole answer comes back in one piece (a block response, not streaming), then a recap of the whole trip.
@@ -37,6 +37,7 @@ An internet connection is needed: the 3D engine, textures and models are loaded 
 - `js/nature.js`: fir trees built from real twig and bark photos, scattered plants and rocks, clouds.
 - `js/city.js`: the towns at each end of the trip.
 - `js/intro.js`: the opening screen's small 3D model of the whole trip.
+- `js/tunnel.js`: the first-person ride inside the cable.
 - `js/writing-desk.js`: the walnut desk, brass lamp, olive branches, book, router and illuminated sill.
 - `js/detail.js`: extra detail for the sea floor, the data hall and the inside of the AI.
 - `js/main.js`: the 3D world, the story steps and the controls.
@@ -52,7 +53,7 @@ An internet connection is needed: the 3D engine, textures and models are loaded 
 
 This is a teaching model, not a network diagram. A few things are simplified on purpose:
 
-- The phone looks up the address before it sends anything; here it is shown at the start of the internet stop.
+- Finding the AI's address and the hops from machine to machine are left out, to keep the trip short.
 - At home the first hop is usually Wi-Fi rather than a cell tower.
 - The route drawn on the planet (Florida to a data center in Northern Virginia) is an example. A trip like that stays on land; the sea-floor ride is there to show how the internet reaches other continents.
 - The web of cables on the planet is a sketch, not the real cable map.
