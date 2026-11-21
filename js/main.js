@@ -16,6 +16,7 @@ import {createIntro,INTRO_AT} from './intro.js';
 import {createTunnel,TUNNEL_AT} from './tunnel.js';
 import {seaDetail,hallDetail,modelDetail} from './detail.js';
 import {createWritingDesk} from './writing-desk.js';
+import {createHomeDetails} from './home.js';
 
 import {seaY,bedHeight} from './seafloor.js';
 import {showChipLesson, hideChipLesson} from './chip-lesson.js';
@@ -504,10 +505,9 @@ function setThumb(p){
     const pane=new THREE.Mesh(new THREE.PlaneGeometry(4,1.04),glass);pane.rotation.y=-Math.PI/2;pane.position.set(2.07,1.56,0);pane.renderOrder=2;scene.add(pane);
   }
   bx(2,2.15,1,2.1,-2.15,-.75,wall,WT);bx(2,2.15,1,2.1,.75,2.15,wall,WT);
-  const roofShape=new THREE.Shape();roofShape.moveTo(-2.5,0);roofShape.lineTo(2.5,0);roofShape.lineTo(0,1.45);roofShape.closePath();
-  const roof=new THREE.Mesh(new THREE.ExtrudeGeometry(roofShape,{depth:4.8,bevelEnabled:false}),pbr(M(0x5a2f2a,{r:.9}),"clay_roof_tiles_02",{repeat:[.7,.7]}));
-  roof.rotation.y=Math.PI/2;roof.position.set(-2.4,2.75,0);roof.castShadow=true;scene.add(roof);
   writingDesk=createWritingDesk(scene,roomEnv);
+  const roofTile=pbr(M(0x9e6349,{r:.91}),"clay_roof_tiles_02",{tint:0xcdb89f});
+  createHomeDetails(scene,roofTile,writingDesk.woodMap);
   writingDesk.frame(camera.aspect);
   const dark=M(0x14161b,{r:.3,m:.8,env:1});
   /* the room's ceiling light: the one that casts the soft shadows of the hand, phone, router and plant onto the desk */
