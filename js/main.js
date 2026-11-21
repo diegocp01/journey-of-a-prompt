@@ -10,6 +10,7 @@ import {Water} from 'three/addons/objects/Water.js';
 import {appCopy} from './copy.js';
 import {createHand,HP} from './hand.js';
 import {createPhotoGrip} from './phone-grip.js';
+import {paintPhone,phoneLayout} from './phone-screen.js';
 import {createForest,scatter,createClouds,tickNature} from './nature.js';
 import {createCity} from './city.js';
 import {createIntro,INTRO_AT} from './intro.js';
@@ -371,113 +372,13 @@ let ocean=null,underSea=null;
 createCity(scene,[[-70,112,-150,-58],[-70,112,58,150],[256,440,-160,-64],[256,440,64,160]]);
 
 /* phone screen */
-/* a soft diagonal reflection, as on real glass */
-function glare(g,w,h){const gr=g.createLinearGradient(w*.1,0,w*.95,h*.55);gr.addColorStop(0,"rgba(255,255,255,0)");gr.addColorStop(.46,"rgba(255,255,255,0)");gr.addColorStop(.5,"rgba(190,215,255,.16)");gr.addColorStop(.62,"rgba(190,215,255,.05)");gr.addColorStop(.63,"rgba(255,255,255,0)");g.fillStyle=gr;g.fillRect(0,0,w,h);}
 let phoneState={mode:"draft",bits:null,words:[]};
-function drawPhone(g,w,h,photo=false,press=0){
-  const s=phoneState,lines=s.cipher||s.bits||ui.promptLines,L=ui.labels,ink="#0d0d0d",soft="#9a9a9a";
-  /* black glass with a rounded display, like a modern phone */
-  g.save();
-  if(!photo){
-    g.fillStyle="#000";g.fillRect(0,0,w,h);
-    g.beginPath();g.roundRect(15,15,w-30,h-30,64);g.clip();
-    g.fillStyle="#fcfcfc";g.fillRect(0,0,w,h);
-  }
-  /* status bar: time with the location arrow, pill cut-out, signal, Wi-Fi, battery */
-  g.textBaseline="middle";g.textAlign="left";g.fillStyle=ink;g.font=`700 31px ${FONT}`;g.fillText("6:26",58,64);
-  g.beginPath();g.moveTo(143,53);g.lineTo(124,62);g.lineTo(134,65);g.lineTo(137,75);g.closePath();g.fill();
-  if(!photo){
-    rr(g,w/2-78,40,156,46,23,"#000");
-    /* front camera lens inside the island */
-    {const cx=w/2+52,cy=63,gr=g.createRadialGradient(cx-3,cy-3,1,cx,cy,11);gr.addColorStop(0,"#3a4d7a");gr.addColorStop(.5,"#141b30");gr.addColorStop(1,"#05070d");g.fillStyle=gr;g.beginPath();g.arc(cx,cy,11,0,7);g.fill();g.fillStyle="rgba(140,170,255,.55)";g.beginPath();g.arc(cx-3.5,cy-3.5,2.6,0,7);g.fill();}
-  }
-  /* signal, Wi-Fi and battery, at the small size they have on a real phone */
-  g.fillStyle=ink;[0,1,2,3].forEach(i=>{g.beginPath();g.roundRect(386+i*7.4,73-(6+i*3.7),5.2,6+i*3.7,1.4);g.fill();});
-  g.lineWidth=3.3;g.lineCap="round";g.strokeStyle=ink;
-  [6.2,11.6,17].forEach(r=>{g.beginPath();g.arc(434,74,r,-Math.PI*.75,-Math.PI*.25);g.stroke();});
-  g.beginPath();g.arc(434,72.4,2.4,0,7);g.fill();
-  g.lineWidth=2;g.strokeStyle="rgba(13,13,13,.45)";g.beginPath();g.roundRect(458,54.5,36,18.5,6);g.stroke();
-  g.fillStyle=ink;g.beginPath();g.roundRect(460.6,57.1,30.8,13.3,3.6);g.fill();g.beginPath();g.roundRect(495.6,60.5,2.6,6.5,1.2);g.fill();
-  /* a white floating button or card with a soft shadow, as in the app */
-  const card=(x,y,cw,ch,r)=>{
-    g.save();g.shadowColor="rgba(0,0,0,.13)";g.shadowBlur=22;g.shadowOffsetY=5;
-    g.beginPath();g.roundRect(x,y,cw,ch,r);g.fillStyle=photo?"rgba(255,255,255,.78)":"#fff";g.fill();g.restore();
-    g.beginPath();g.roundRect(x,y,cw,ch,r);g.lineWidth=1.5;g.strokeStyle="rgba(0,0,0,.09)";g.stroke();
-  };
-  /* top left: the menu button with its green dot. top right: voice and private-chat buttons */
-  card(25,103,58,58,29);
-  g.strokeStyle=ink;g.lineWidth=3.4;g.lineCap="round";
-  g.beginPath();g.moveTo(43,126);g.lineTo(54,126);g.moveTo(43,138);g.lineTo(60,138);g.stroke();
-  g.fillStyle="#a4d82b";g.beginPath();g.arc(63,123,5.4,0,7);g.fill();
-  /* the app's name, top centre */
-  g.fillStyle=ink;g.textAlign="center";g.font=`600 27px ${FONT}`;g.fillText(L.phoneTitle,w/2,133);
-  card(386,104,130,56,28);
-  g.strokeStyle=ink;g.lineWidth=3.2;
-  [[407,7],[415,13],[423,9],[431,4]].forEach(([x,hh])=>{g.beginPath();g.moveTo(x,132-hh);g.lineTo(x,132+hh);g.stroke();});
-  g.lineWidth=2.8;g.lineJoin="round";
-  g.beginPath();g.moveTo(471,131);g.lineTo(501,131);g.moveTo(476,131);g.lineTo(479,119);g.lineTo(493,119);g.lineTo(496,131);g.stroke();
-  g.beginPath();g.arc(479,141,5,0,7);g.moveTo(498,141);g.arc(493,141,5,0,7);g.moveTo(484,141);g.lineTo(488,141);g.stroke();
-  /* home bar */
-  g.fillStyle="#111";g.beginPath();g.roundRect(w/2-92,h-40,184,9,5);g.fill();
-  /* the row at the bottom of the message box: plus, the model's name, and a button on the right */
-  const tools=(y)=>{
-    g.strokeStyle=ink;g.lineWidth=3.2;g.lineCap="round";
-    g.beginPath();g.moveTo(34,y);g.lineTo(58,y);g.moveTo(46,y-12);g.lineTo(46,y+12);g.stroke();
-    g.textAlign="left";g.font=`600 21px ${FONT}`;g.fillStyle=ink;g.fillText(L.model,88,y+1);
-    const mw=g.measureText(L.model).width;g.font=`500 21px ${FONT}`;g.fillStyle=soft;g.fillText(L.effort,88+mw+7,y+1);
-  };
-  const mic=(x,y)=>{
-    g.strokeStyle=ink;g.lineWidth=3;g.lineCap="round";
-    g.beginPath();g.roundRect(x-6,y-15,12,21,6);g.stroke();
-    g.beginPath();g.arc(x,y-2,12,.15*Math.PI,.85*Math.PI);g.stroke();
-    g.beginPath();g.moveTo(x,y+10);g.lineTo(x,y+16);g.stroke();
-  };
-  if(s.mode==="draft"){
-    /* greeting in the middle, as on the app's empty chat */
-    g.textAlign="center";g.fillStyle="#111";g.font=`500 28px ${FONT}`;g.fillText(L.greet,w/2,352);
-    g.fillStyle="#5b5b5b";g.fillText(L.greet2,w/2,392);
-    /* the message box with the typed question; the Send button replaces the microphone once there is text */
-    const sendX=photo?378:w-64,sendY=h-190;
-    card(16,sendY-126,w-32,172,34);
-    g.fillStyle=ink;g.textAlign="left";g.font=`500 33px ${FONT}`;
-    g.fillText(lines[0],42,sendY-86,sendX-70);g.fillText(lines[1],42,sendY-46,sendX-110);
-    tools(sendY);
-    /* tap feedback: as the thumb lands the button sinks and darkens, and a ripple spreads out from it */
-    const down=smooth(.7,1,press),R=37;
-    if(tapFx>0&&tapFx<1){
-      const q=1-Math.pow(1-tapFx,2);
-      g.save();g.translate(sendX,sendY);
-      g.beginPath();g.arc(0,0,R+100*q,0,Math.PI*2);g.fillStyle=`rgba(10,132,255,${(.2*(1-q)).toFixed(3)})`;g.fill();
-      g.beginPath();g.arc(0,0,R+100*q,0,Math.PI*2);g.strokeStyle=`rgba(10,132,255,${(.75*(1-q)).toFixed(3)})`;g.lineWidth=3+9*(1-q);g.stroke();
-      g.restore();
-    }
-    g.save();g.translate(sendX,sendY);g.scale(1-.13*down,1-.13*down);
-    g.beginPath();g.arc(0,0,R,0,Math.PI*2);g.fillStyle=`rgb(${Math.round(10-10*down)},${Math.round(132-62*down)},${Math.round(255-95*down)})`;g.fill();
-    g.strokeStyle="#fff";g.lineWidth=8;g.lineCap="round";g.lineJoin="round";
-    g.beginPath();g.moveTo(0,18);g.lineTo(0,-18);g.moveTo(-17,-2);g.lineTo(0,-19);g.lineTo(17,-2);g.stroke();g.restore();
-    if(!photo) glare(g,w,h);
-    g.restore();return;
-  }
-  /* after sending: the question as a bubble on the right, the answer below it, an empty message box at the bottom */
-  rr(g,w-24-372,196,372,128,40,s.cipher?"#1c2540":"#0a84ff");
-  if(s.cipher){g.font="50px sans-serif";g.textAlign="center";g.fillText("🔒",w-24-372-40,262);}
-  g.textAlign="center";g.fillStyle=s.cipher?"#9fb4ff":"#fff";g.font=`600 36px ${s.bits||s.cipher?MONO:FONT}`;g.fillText(lines[0],w-24-186,238,340);g.fillText(lines[1],w-24-186,284,340);
-  card(16,h-262,w-32,118,34);
-  g.fillStyle=soft;g.textAlign="left";g.font=`500 30px ${FONT}`;g.fillText(L.ask,42,h-226);
-  tools(h-180);mic(w-48,h-180);
-  if(s.mode==="answer"){
-    g.font=`500 38px ${FONT}`;g.textAlign="left";
-    const out=[""];
-    s.words.forEach(wd=>{const cur=out[out.length-1],t=cur?cur+" "+wd:wd;if(cur&&g.measureText(t).width>430) out.push(wd); else out[out.length-1]=t;});
-    if(!s.words.length) out[0]="…";
-    g.fillStyle=ink;out.forEach((l,i)=>g.fillText(l,40,392+i*54));
-  }
-  if(!photo) glare(g,w,h);
-  g.restore();
-}
-const phoneTex=canvasTex(540,1166,drawPhone);
-let photoGrip,hand,wifiLabel;
 let thumbPress=0,tapFx=0;
+function drawPhone(g,w,h,photo=false,press=thumbPress){
+  paintPhone(g,w,h,ui,phoneState,photo,press,tapFx);
+}
+const phoneTex=canvasTex(phoneLayout.width*2,phoneLayout.height*2,drawPhone);
+let photoGrip,hand,wifiLabel;
 function redrawPhone(){
   if(photoGrip?.ready) photoGrip.redraw(thumbPress);
   else phoneTex.redraw();
@@ -485,7 +386,7 @@ function redrawPhone(){
 function setThumb(p){
   thumbPress=p;
   if(photoGrip?.ready) photoGrip.redraw(p);
-  else hand?.pose(p);
+  else { hand?.pose(p); phoneTex.redraw(); }
 }
 {
   const wall=pbr(M(0xd8d0c2,{r:.95}),"beige_wall_001",{tint:0xe6ddcf});
@@ -535,11 +436,21 @@ function setThumb(p){
     phoneBody.visible=false;
     redrawPhone();
   },onError:()=>{
-    hand=createHand(phoneBody);
+    const grip=new THREE.Group();
+    grip.position.set((phoneLayout.send.x/phoneLayout.width-.5)*SW-HP.thumbDown[0],
+      (.5-phoneLayout.send.y/phoneLayout.height)*SH-HP.thumbDown[1],0);
+    inner.add(grip);
+    hand=createHand(grip);
     hand.pose(thumbPress);
   }});
-  // Keep the existing screen geometry as the tap target for both renderings.
-  tap(phoneScreen,()=>(current===0||current===HOME)&&!done&&!busy,()=>mainAction());
+  function canTapPhone(uv){
+    if(done || busy || (current!==0 && current!==HOME)) return false;
+    if(current===HOME) return true;
+    const {width,height,send}=phoneLayout;
+    return Math.hypot(uv.x*width-send.x,(1-uv.y)*height-send.y)<=send.radius+15;
+  }
+  tap(phoneScreen,uv=>!photoGrip.ready && canTapPhone(uv),mainAction);
+  tap(photoGrip.screen,uv=>photoGrip.ready && canTapPhone(uv),mainAction);
 }
 
 /* =====================================================================
@@ -1581,8 +1492,7 @@ const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),mouse={x:0,y:0,sx:0,sy:0
 function pick(e){
   ndc.set(e.clientX/window.innerWidth*2-1,-(e.clientY/window.innerHeight)*2+1);
   ray.setFromCamera(ndc,camera);
-  const hit=ray.intersectObjects(tappables,false)[0];
-  return hit&&hit.object.userData.can()?hit.object:null;
+  return ray.intersectObjects(tappables,false).find(hit=>hit.object.userData.can(hit.uv))?.object ?? null;
 }
 let downAt=null;
 canvas.addEventListener("pointermove",e=>{
