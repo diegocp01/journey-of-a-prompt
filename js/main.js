@@ -31,8 +31,8 @@ const MODEL=4,HOME=5;
 const BEATS=[[0,6.2],[0],[0,6],[0,5],null,[0]];
 /* when the next short line of a step appears (story seconds from the start of the action) */
 /* story time in each beat when its picture is done and the main button turns on */
-const READY=[[2,10.9],[8.6],[2.4,12.4],[3.8,13.3],null,[3.4]];
-const ITEMS=[[[3,5.3],[8.7,10.9]],[[3.5,5.8]],[[3.2],[9.2,11.8]],[[3],[9.6,11.8]],null,[[2.6]]];
+const READY=[[2,10.9],[8.6],[2.4,12.4],[3.8,13.3],null,[1.2]];
+const ITEMS=[[[3,5.3],[8.7,10.9]],[[3.5,5.8]],[[3.2],[9.2,11.8]],[[3],[9.6,11.8]],null,[[1.6]]];
 const beatTimes=i=>BEATS[i];
 const $=id=>document.getElementById(id);
 const V=(x,y,z)=>new THREE.Vector3(x,y,z);
@@ -1394,10 +1394,10 @@ const actions=[
     lockGoal=0;
     const sp=textSprite(ui.answer.join(" "),.015,{bg:"#f4b63a",color:"#2a1c02",border:"rgba(255,255,255,.6)"}),a=hero.position.clone().add(V(0,.04,0)),b=V(1.49,1,0);
     const W=sp.scale.x,H=sp.scale.y;sp.scale.set(.001,.001,1);sp.position.copy(a);scene.add(sp);temps.push(sp);
-    tween(.9,.5,p=>sp.scale.set(W*Math.max(.001,p),H*Math.max(.001,p),1),outBack);
-    tween(2.7,.5,p=>{sp.position.lerpVectors(a,b,p);sp.scale.set(W*(1-.6*p),H*(1-.6*p),1);},ease);
-    at(3.2,()=>{scene.remove(sp);phoneState.words=[...ui.answer];redrawPhone();});
-    return 4.2;
+    tween(.05,.3,p=>sp.scale.set(W*Math.max(.001,p),H*Math.max(.001,p),1),outBack);
+    tween(.5,.35,p=>{sp.position.lerpVectors(a,b,p);sp.scale.set(W*(1-.6*p),H*(1-.6*p),1);},ease);
+    at(.85,()=>{scene.remove(sp);phoneState.words=[...ui.answer];redrawPhone();});
+    return 2.2;
   }
 ];
 
