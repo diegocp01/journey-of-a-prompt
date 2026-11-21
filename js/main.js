@@ -18,6 +18,7 @@ import {seaDetail,hallDetail,modelDetail} from './detail.js';
 import {createWritingDesk} from './writing-desk.js';
 
 import {seaY,bedHeight} from './seafloor.js';
+import {showChipLesson, hideChipLesson} from './chip-lesson.js';
 
 /* =====================================================================
    COPY
@@ -58,7 +59,7 @@ function gate(delay,fn,label){gates.push({t:clock+delay-.001,fn,label});gates.so
 function release(){if(!waiting) return;waiting=false;const g=gates.shift();if(g.fn) g.fn();renderHUD();}
 function at(delay,fn){tasks.push({start:clock+delay,dur:0,fn});}
 function tween(delay,dur,fn,easing){tasks.push({start:clock+delay,dur,fn,easing});}
-function clearTasks(){tasks.forEach(t=>t.dead=true);tasks=[];temps.forEach(o=>o.parent&&o.parent.remove(o));temps=[];liveTimer=null;gates=[];waiting=false;stepping=false;realSpeed=false;if(typeof speedLabel!=="undefined"&&speedLabel){speedLabel.visible=false;speedLabel.material.opacity=0;}stageGoal=0;waveOn=0;softs=[];readUntil=0;openAt=Infinity;setLegend(false);}
+function clearTasks(){hideChipLesson();tasks.forEach(t=>t.dead=true);tasks=[];temps.forEach(o=>o.parent&&o.parent.remove(o));temps=[];liveTimer=null;gates=[];waiting=false;stepping=false;realSpeed=false;if(typeof speedLabel!=="undefined"&&speedLabel){speedLabel.visible=false;speedLabel.material.opacity=0;}stageGoal=0;waveOn=0;softs=[];readUntil=0;openAt=Infinity;setLegend(false);}
 /* the small "hair next to a glass thread" panel above the bottom bar */
 function setLegend(on){$("sizeLegend").classList.toggle("on",on);}
 function runTasks(){
@@ -962,12 +963,11 @@ function hideGlobe(){globeOn=false;webOn=false;}
 scene.add(camera);
 const veil=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshBasicMaterial({color:0x03050c,transparent:true,opacity:0,depthTest:false,depthWrite:false,fog:false}));
 veil.position.z=-1;veil.renderOrder=900;veil.visible=false;camera.add(veil);
-let stage={text:"",lines:[""],n:0,ghost:1,scr:0,lock:0,seed:0},stageGoal=0,stageOn=0,stageScale=1,stageT=0;
+let stage={text:"",lines:[""],n:0,ghost:1,scr:0,lock:0,seed:0},stageGoal=0,stageOn=0,stageScale=1;
 const stageBox={w:1,h:.5,y:0},GIB="x9#Kq7$Zm2&Bv4@Wd8!Rj%Yc5?Hs";
 const stageTex=canvasTex(1400,700,g=>{
   const w=g.canvas.width,h=g.canvas.height,s=stage,port=h>=w;
   g.clearRect(0,0,w,h);g.globalAlpha=1;g.shadowBlur=0;
-  if(s.mode==="gpu") return drawGpu(g,w,h,s,port);
   const N=(s.text||"").length;
   if(!N) return;
   const pad=w*.025,lines=port?s.lines:[s.text],fs=port?54:62,bubH=lines.length*fs*1.25+44;
@@ -1018,53 +1018,14 @@ const stageTex=canvasTex(1400,700,g=>{
 });
 const stagePlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:stageTex.tex,transparent:true,opacity:0,depthTest:false,depthWrite:false,fog:false}));
 stagePlane.position.z=-.99;stagePlane.renderOrder=901;stagePlane.visible=false;camera.add(stagePlane);
-/* stage: one GPU chip. Many small sums at once, then the model's numbers, then the words going in */
-const NUMS=["0.12","-0.87","0.45","0.91","-0.33","0.08","-0.52","0.67","0.29","-0.71","0.56","-0.14"];
-function drawGpu(g,w,h,s,port){
-  /* one chip full of numbers; then the question slides in and the numbers light up in a wave */
-  const t=amb,cols=port?4:6,rows=port?4:3,nc=cols*rows,lt=s.phase===2?t-s.t0:0,sh=s.phase===2?smooth(0,.7,lt):0,loop=s.phase===2?Math.max(0,lt-.6)%3.6:0;
-  const CW=port?w*.9:w*.56,CH=port?h*.52:h*.8;
-  const X=port?(w-CW)/2:(w-CW)/2+(w*.4-(w-CW)/2)*sh,Y=port?(h-CH)/2+(h*.42-(h-CH)/2)*sh:(h-CH)/2;
-  g.textBaseline="middle";g.textAlign="center";
-  g.fillStyle="#b98a2e";
-  for(let x=X+34;x<X+CW-30;x+=44){g.fillRect(x,Y-14,18,16);g.fillRect(x,Y+CH-2,18,16);}
-  for(let y=Y+34;y<Y+CH-30;y+=44){g.fillRect(X-14,y,16,18);g.fillRect(X+CW-2,y,16,18);}
-  rr(g,X,Y,CW,CH,28,"#0e131c","#f4a62a");
-  g.fillStyle="#f4a62a";g.font=`900 34px ${FONT}`;g.textAlign="left";g.fillText(ui.labels.gpu,X+28,Y+36);g.textAlign="center";
-  const gx=X+22,gy=Y+64,cw=(CW-44)/cols,chh=(CH-86)/rows,f=Math.floor(Math.min(cw*.25,chh*.36)),sweep=s.phase===2?(loop-1.2)/1.7:-1;
-  for(let i=0;i<nc;i++){
-    const c=i%cols,r=Math.floor(i/cols),cx=gx+(c+.5)*cw,cy=gy+(r+.5)*chh,on=s.phase===2||((i*37)%nc)/nc<s.k;
-    const u=port?(r+.5)/rows:(c+.5)/cols,hot=s.phase===2&&Math.abs(u-sweep)<.5/(port?rows:cols)+.02;
-    rr(g,cx-cw/2+7,cy-chh/2+7,cw-14,chh-14,14,hot?"rgba(244,166,42,.92)":"rgba(255,255,255,.045)",s.phase===0&&on?"#34d399":hot?"#ffd166":"rgba(255,255,255,.14)");
-    g.font=`800 ${f}px ${MONO}`;
-    if(s.phase===0){
-      const a=(i*7)%8+2,b=(i*5)%7+2;
-      g.fillStyle="#fff";g.fillText(`${a}×${b}`,cx,cy-f*.6);
-      g.fillStyle=on?"#7dffb0":"rgba(255,255,255,.3)";g.fillText(on?`=${a*b}`:"= ?",cx,cy+f*.6);
-    }else if(on){
-      g.fillStyle=hot?"#1c1200":"#ffcf7a";
-      g.fillText(NUMS[(i*5)%12],cx,cy);
-    }
-  }
-  if(s.phase===2){
-    /* the question, in the same blue bubble as on the phone, slides into the chip */
-    const te=smooth(.25,1.3,loop),L=ui.promptLines;
-    let bw,bh,x,y;
-    if(port){bw=w*.7;bh=h*.2;x=w*.5;y=h*.03+bh/2+te*(Y+bh*.2-h*.03-bh/2);}
-    else{bw=w*.33;bh=h*.3;y=h*.5;x=w*.02+bw/2+te*(X+bw*.25-w*.02-bw/2);}
-    g.globalAlpha=(1-smooth(.7,1,te))*smooth(0,.4,lt);
-    rr(g,x-bw/2,y-bh/2,bw,bh,bh*.24,"#2f6fed","rgba(255,255,255,.7)");
-    g.fillStyle="#fff";g.font=`800 ${Math.floor(Math.min(bh*.26,bw*.115))}px ${FONT}`;
-    L.forEach((ln,i)=>g.fillText(ln,x,y+(i-(L.length-1)/2)*bh*.34));
-    g.globalAlpha=1;
-  }
-}
 /* fit the stage into the free area between the caption and the bottom bar */
 function stageFit(){
   const W=window.innerWidth,H=window.innerHeight;if(!W||!H) return;
   const port=camera.aspect<1,cw=port?840:1400,ch=port?840:700;
   if(stageTex.c.width!==cw||stageTex.c.height!==ch){stageTex.c.width=cw;stageTex.c.height=ch;stageTex.tex.dispose();stageTex.redraw();}
   const top=$("caption").getBoundingClientRect().bottom+16,btm=document.querySelector(".bottom").getBoundingClientRect().top-10;
+  const lesson=$("chipLesson");
+  lesson.style.top=top+"px";lesson.style.bottom=Math.max(0,H-btm)+"px";
   const k=Math.min(W*(port?.95:.88)/cw,Math.max(140,btm-top)/ch),Hu=2*Math.tan(camera.fov*Math.PI/360)*.99,u=Hu/H;
   stageBox.w=cw*k*u;stageBox.h=ch*k*u;stageBox.y=(.5+VOFF()-(top+btm)/2/H)*Hu;
 }
@@ -1086,7 +1047,7 @@ const ms=new THREE.Group();ms.position.set(MX,0,0);scene.add(ms);
   ms.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0x6a4cff,transparent:true,opacity:.22})));
 }
 const words=new THREE.Group();ms.add(words);
-let tok=[],ans=[],xs=[],widths=[],sentence,idSprites=[],stamps=[],cells,cellBase=[],arcGroup,chart,chartBars=[],ring,CX=0,focusTok=4;
+let tok=[],ans=[],xs=[],widths=[],stamps=[],cells,cellBase=[],arcGroup,chart,chartBars=[],ring,CX=0,focusTok=4;
 function slab(text,color,h=.8,textColor="#141c33",ei=.2){
   const w=(.6+text.length*.24)*h/.8,g=new THREE.Group();
   const body=new THREE.Mesh(new RoundedBoxGeometry(w,h,.3,4,.1*h/.8),new THREE.MeshStandardMaterial({color,roughness:.35,envMapIntensity:.6,emissive:color,emissiveIntensity:ei}));
@@ -1106,8 +1067,6 @@ function rebuildWords(){
   const shift=-(xs[4]+widths[4]/2)/2;xs=xs.map(v=>v+shift);
   all.forEach((s,i)=>{s.position.set(xs[i],ROW_Y,0);words.add(s);});
   tok.forEach((s,i)=>{s.userData.body.userData.tok=i;s.userData.body.userData.can=()=>current===MODEL&&(sub===1||sub===2);s.userData.body.userData.tap=()=>{sub===1?selectFingerprint(i):selectAttention(i);};tappables.push(s.userData.body);});
-  sentence=slab(ui.prompt,"#2f6fed",.8,"#ffffff");sentence.position.set(0,ROW_Y,0);words.add(sentence);
-  idSprites=ui.tokens.map((t,i)=>{const s=textSprite(ui.tokenId(t.id),.42);s.position.set(xs[i],1.85,0);words.add(s);return s;});
   stamps=ui.tokens.map((t,i)=>{const s=textSprite(ui.place(i+1),.36,{color:"#ffd27a",border:"rgba(244,166,42,.5)"});s.position.set(xs[i],.2,0);words.add(s);return s;});
   /* fingerprints: 5 x 6 grid of number cells under each word */
   cells=new THREE.InstancedMesh(new THREE.BoxGeometry(.19,.19,.06),new THREE.MeshBasicMaterial(),150);cellBase=[];
@@ -1165,18 +1124,12 @@ function setSub(k){
   const pw=xs[4]+widths[4]/2-(xs[0]-widths[0]/2);
   [...tok,...ans].forEach((s,i)=>{s.visible=i<5;s.position.set(xs[i],ROW_Y,0);s.scale.setScalar(1);});
   highlightTok(-1);
-  sentence.visible=false;ring.visible=false;chart.visible=k===3;arcGroup.visible=k===2;
-  idSprites.forEach(s=>s.visible=k===0);stamps.forEach(s=>s.visible=k===1||k===2);
+  ring.visible=false;chart.visible=k===3;arcGroup.visible=k===2;
+  stamps.forEach(s=>s.visible=k===1||k===2);
   cells.visible=k===1||k===2;setCells(()=>1);
   heroVis=0;
   if(k===0){
-    hero.position.set(MX,ROW_Y,.8);heroVis=1;
-    tween(.5,.5,p=>{heroVis=1-p;},ease);
-    sentence.visible=true;sentence.scale.setScalar(.001);tok.forEach(s=>s.visible=false);idSprites.forEach(s=>s.visible=false);
-    tween(.6,.5,p=>sentence.scale.setScalar(Math.max(.001,p)),outBack);
-    at(1.9,()=>{sentence.visible=false;tok.forEach(s=>s.visible=true);});
-    tok.forEach((s,i)=>tween(1.9+i*.08,.6,p=>{s.position.x=xs[i]*(.55+.45*p);s.scale.setScalar(.6+.4*p);},outBack));
-    at(2.7,()=>idSprites.forEach(s=>s.visible=true));
+    showChipLesson(ui,"tokens");
     modelCam(0,ROW_Y-.2,distForWidth(pw+3),1.2);
   }
   if(k===1){
@@ -1360,9 +1313,7 @@ const actions=[
     at(5,()=>greenMats.forEach(m=>m.emissiveIntensity=3));
     travel({delay:5,env:[[313.2,1.7,0],[316,1.6,2.6],[319.5,1.6,2.6],[330,1.7,2.6],GPU_POSE.hero],cam:[[306.5,2.6,-1.2],[310.9,2.4,-.4],[316,2,2.5],[326,2.1,2.5],[336,1.9,2.3],GPU_POSE.cam],look:GPU_POSE.look,dur:4});
     chips.forEach((c,k)=>tween(8.4+k*.07,.35,p=>{c.material.emissiveIntensity=3.2*p;}));
-    at(9.6,()=>{if(sp) sp.visible=false;stage={mode:"gpu",live:true,phase:1,k:0,t0:0};stageScale=1;stageTex.redraw();stageGoal=1;});
-    tween(9.8,1.4,p=>{stage.k=p;});
-    at(11.8,()=>{stage.phase=2;stage.t0=amb;});
+    at(9.6,()=>{if(sp) sp.visible=false;showChipLesson(ui,"gpu");stageFit();});
     return 14.4;
   },
   null,
@@ -1531,7 +1482,7 @@ function renderHUD(){
     if(stop.beats.length>1) ticks=stop.beats.map((x,i)=>`<i class="${i<=beat?"on":""}"></i>`).join("");
   }
   else{title=stop.title;body=itemHTML(stop.say);}
-  const html=`${ticks?`<div class="beats">${ticks}</div>`:""}<h2>${title}</h2>${body}`;
+  const html=`${ticks?`<div class="beats">${ticks}</div>`:""}<h2 id="lessonHeading">${title}</h2>${body}`;
   if(html!==capKey){
     capKey=html;
     const cap=$("caption");cap.innerHTML=html;
@@ -1697,7 +1648,6 @@ function step(dt,draw){
   stageOn+=(stageGoal-stageOn)*(1-Math.exp(-dt*5));
   veil.visible=stageOn>.01;veil.material.opacity=Math.min(1,1.03*stageOn);
   stagePlane.visible=stageOn>.01&&stageScale>.01;stagePlane.material.opacity=Math.min(1,stageOn*1.4);
-  if(stage.live&&stageOn>.02){stageT+=dt;if(stageT>.045){stageT=0;stageTex.redraw();}}
   const ssc=stageScale*(.55+.45*stageOn);
   stagePlane.scale.set(stageBox.w*ssc,stageBox.h*ssc,1);
   stagePlane.position.y+=(stageBox.y*stageScale-stagePlane.position.y)*(1-Math.exp(-dt*8));
