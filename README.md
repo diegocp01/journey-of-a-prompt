@@ -39,7 +39,7 @@ An internet connection is needed: the 3D engine, textures and models are loaded 
 - `js/intro.js`: the opening screen's small 3D model of the whole trip.
 - `js/tunnel.js`: the first-person ride inside the cable.
 - `js/home.js` and `js/home-textiles.js`: the garden cottage, furnished office, woven rug and framed print along the return flight.
-- `js/writing-desk.js`: the walnut desk, brass lamp, olive branches, book, router and illuminated sill.
+- `js/writing-desk.js`: the walnut desk, spun-brass lamp, linen-bound book and illuminated sill. The modeled olive shoots and vented router are in `js/desk-olive.js` and `js/desk-router.js`.
 - `js/seafloor.js` and `js/ocean-fish.js`: sediment, rock outcrops, bottom-dwelling animals and animated fish along the underwater cables.
 - `js/detail.js`: extra detail for the sea floor, the data hall and the inside of the AI.
 - `js/main.js`: the 3D world, the story steps and the controls.
@@ -67,6 +67,6 @@ This is a teaching model, not a network diagram. A few things are simplified on 
 - Textures and 3D models from [Poly Haven](https://polyhaven.com) (CC0). The ocean floor bundles the color and normal maps from [Gravelly Sand](https://polyhaven.com/a/gravelly_sand) and the surface texture from [Rock Boulder Cracked](https://polyhaven.com/a/rock_boulder_cracked).
 - Cottage upholstery and lawn use [Brown Leather](https://polyhaven.com/a/brown_leather), [Fabric Pattern 07](https://polyhaven.com/a/fabric_pattern_07) and [Grass Ground](https://polyhaven.com/a/grass_ground) (CC0), bundled with the scene.
 - Desk grain from [Wood Table 001](https://polyhaven.com/a/wood_table_001) (CC0), bundled with the scene.
-- The main phone and hand image was created with ImageGen.
+- The main phone and hand image and the olive leaf, ivory marble and speckled stoneware surface textures were created with ImageGen.
 - Fallback hand model from [Babylon.js Assets](https://github.com/BabylonJS/Assets) (CC BY 4.0), loaded from assets.babylonjs.com, with skin tones, nails and smoothing added here.
 - Look and pacing inspired by Charles Zheng's reel about a photo crossing the Pacific in 200 ms.
