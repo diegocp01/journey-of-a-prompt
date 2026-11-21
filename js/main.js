@@ -13,7 +13,8 @@ import {createPhotoGrip} from './phone-grip.js';
 import {createForest,scatter,createClouds,tickNature} from './nature.js';
 import {createCity} from './city.js';
 import {createIntro,INTRO_AT} from './intro.js';
-import {roomDetail,seaDetail,hallDetail,modelDetail} from './detail.js';
+import {seaDetail,hallDetail,modelDetail} from './detail.js';
+import {createWritingDesk} from './writing-desk.js';
 
 /* =====================================================================
    COPY
@@ -150,11 +151,13 @@ composer.addPass(new RenderPass(scene,camera));
 composer.addPass(new UnrealBloomPass(new THREE.Vector2(4,4),.26,.45,1.15));
 composer.addPass(new OutputPass());
 const VOFF=()=>camera.aspect<1?.1:.075;
+let writingDesk;
 function resize(){
   const w=window.innerWidth,h=window.innerHeight;
   if(!w||!h) return;
   renderer.setSize(w,h,false);composer.setSize(w,h);
   camera.aspect=w/h;camera.fov=camera.aspect<1?60:45;camera.setViewOffset(w,h,0,-Math.round(h*VOFF()),w,h);camera.updateProjectionMatrix();
+  writingDesk?.frame(camera.aspect);
 }
 window.addEventListener("resize",resize);resize();
 
@@ -241,7 +244,7 @@ const GLOW=glowTex();
 /* the opening screen's little 3D model of the whole trip (see intro.js) */
 const introFx=createIntro(scene,GLOW);
 let introOn=true;
-const tappables=[],placed={},LAMP_ROT=0;
+const tappables=[],placed={};
 function tap(obj,can,fn){obj.traverse(o=>{if(o.isMesh){o.userData.can=can;o.userData.tap=fn;tappables.push(o);}});}
 const stopTap=i=>[()=>current===i&&!done&&!busy,()=>mainAction()];
 
@@ -487,7 +490,7 @@ function drawPhone(g,w,h,photo=false,press=0){
   g.restore();
 }
 const phoneTex=canvasTex(540,1166,drawPhone);
-let photoGrip,hand;
+let photoGrip,hand,wifiLabel;
 let thumbPress=0,tapFx=0;
 function redrawPhone(){
   if(photoGrip?.ready) photoGrip.redraw(thumbPress);
@@ -499,8 +502,8 @@ function setThumb(p){
   else hand?.pose(p);
 }
 {
-  const wall=pbr(M(0xd8d0c2,{r:.95}),"beige_wall_001",{tint:0xe6ddcf}),white=M(0xcfcbc2,{r:.9,env:.1});
-  const floorM=pbr(M(0x8a6748,{r:.85,env:.15}),"laminate_floor_02"),wood=pbr(M(0x6e4a2f,{r:.82,env:.15}),"wood_table_001");
+  const wall=pbr(M(0xd8d0c2,{r:.95}),"beige_wall_001",{tint:0xe6ddcf});
+  const floorM=pbr(M(0x8a6748,{r:.85,env:.15}),"laminate_floor_02");
   const WT={tile:2};
   bx(-2.15,2.15,-.12,0,-2.15,2.15,floorM,{tile:1.6});
   bx(-2.15,2.15,2.6,2.75,-2.15,2.15,wall,WT);
@@ -510,41 +513,23 @@ function setThumb(p){
   /* the opening in that wall is a window: sill, frame, bars and glass, so it reads as a room looking out at the tower */
   {
     const fr=M(0xf1efe9,{r:.55,env:.3}),glass=new THREE.MeshStandardMaterial({color:0xd6ecff,transparent:true,opacity:.1,roughness:.04,metalness:0,envMapIntensity:1.4,depthWrite:false});
-    bx(1.93,2.19,.985,1.02,-2.02,2.02,fr,{cast:false});                 /* sill */
     bx(2.04,2.1,1.02,1.06,-2,2,fr,{cast:false});bx(2.04,2.1,2.06,2.1,-2,2,fr,{cast:false});
     [-2,-1,-.33,.33,1,2].forEach(z=>bx(2.04,2.1,1.02,2.1,z-.022,z+.022,fr,{cast:false}));
     bx(2.055,2.085,1.72,1.75,-2,2,fr,{cast:false});                     /* cross bar */
     const pane=new THREE.Mesh(new THREE.PlaneGeometry(4,1.04),glass);pane.rotation.y=-Math.PI/2;pane.position.set(2.07,1.56,0);pane.renderOrder=2;scene.add(pane);
   }
   bx(2,2.15,1,2.1,-2.15,-.75,wall,WT);bx(2,2.15,1,2.1,.75,2.15,wall,WT);
-  bx(1.94,2.21,.96,1,-.82,.82,white);bx(1.97,2.18,2.1,2.14,-.82,.82,white);
-  bx(1.97,2.18,1,2.1,-.79,-.75,white);bx(1.97,2.18,1,2.1,.75,.79,white);
   const roofShape=new THREE.Shape();roofShape.moveTo(-2.5,0);roofShape.lineTo(2.5,0);roofShape.lineTo(0,1.45);roofShape.closePath();
   const roof=new THREE.Mesh(new THREE.ExtrudeGeometry(roofShape,{depth:4.8,bevelEnabled:false}),pbr(M(0x5a2f2a,{r:.9}),"clay_roof_tiles_02",{repeat:[.7,.7]}));
   roof.rotation.y=Math.PI/2;roof.position.set(-2.4,2.75,0);roof.castShadow=true;scene.add(roof);
-  /* desk and things on it */
-  bx(1.22,1.98,.71,.75,-.95,.95,wood,{tile:1});
-  [[1.27,-.9],[1.27,.9],[1.93,-.9],[1.93,.9]].forEach(([x,z])=>bx(x-.025,x+.025,0,.71,z-.025,z+.025,wood));
+  writingDesk=createWritingDesk(scene,roomEnv);
+  writingDesk.frame(camera.aspect);
   const dark=M(0x14161b,{r:.3,m:.8,env:1});
-  const lampParts=[cyl(.075,.085,.016,dark,1.72,.758,-.6),cyl(.008,.008,.4,dark,1.72,.95,-.6,8)];
-  const shade=new THREE.Mesh(new THREE.CylinderGeometry(.05,.115,.13,24,1,true),new THREE.MeshStandardMaterial({color:0xf6e6c8,emissive:0xffc98a,emissiveIntensity:.22,side:THREE.DoubleSide,roughness:.9}));
-  shade.position.set(1.72,1.18,-.6);scene.add(shade);
-  const bulb=new THREE.Mesh(new THREE.SphereGeometry(.026,12,12),E(0xffd9a0,1.6));bulb.position.set(1.72,1.15,-.6);scene.add(bulb);
-  const lamp=new THREE.PointLight(0xffc98a,.45,7,2);lamp.position.set(1.72,1.1,-.6);scene.add(lamp);
   /* the room's ceiling light: the one that casts the soft shadows of the hand, phone, router and plant onto the desk */
-  const key=new THREE.SpotLight(0xfff1dc,5,6,.62,.7,2);key.position.set(1.02,2.4,-.5);key.target.position.set(1.62,.75,.16);
-  key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=.4;key.shadow.camera.far=4.5;key.shadow.bias=-.0006;key.shadow.normalBias=.012;
+  const key=new THREE.SpotLight(0xffe4c5,3.7,6,.68,.9,2);key.position.set(1.02,2.4,-.5);key.target.position.set(1.62,.75,.16);
+  key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=.4;key.shadow.camera.far=4.5;key.shadow.bias=-.0002;key.shadow.normalBias=.0012;
   scene.add(key,key.target);
-  lampParts.push(shade,bulb);
-  model("desk_lamp_arm_01",m=>{lampParts.forEach(o=>o.visible=false);m.position.set(1.76,.75,-.62);m.rotation.y=LAMP_ROT;scene.add(m);placed.lamp=m;});
-  model("potted_plant_04",m=>{m.position.set(1.9,.75,-.46);scene.add(m);placed.plant=m;});
-  cyl(.04,.036,.09,M(0x2a7f86,{r:.35,env:.6}),1.6,.795,.52);
-  bx(1.66,1.9,.75,.78,.58,.76,M(0x8b3a3a,{r:.7}));bx(1.68,1.9,.78,.805,.6,.75,M(0x2f4f7f,{r:.7}));
-  /* wifi router */
-  bx(1.8,1.9,.75,.778,.16,.34,M(0xd2d4d8,{r:.85,env:.1}));
-  cyl(.004,.004,.11,dark,1.87,.83,.18,6);cyl(.004,.004,.11,dark,1.87,.83,.32,6);
-  const led=new THREE.Mesh(new THREE.SphereGeometry(.004,8,8),E(0x4ade80,4));led.position.set(1.798,.766,.25);scene.add(led);
-  label("wifi",1.86,.95,.25,.034);
+  wifiLabel=label("wifi",1.87,.95,.27,.034);
   /* phone */
   const outer=new THREE.Group();outer.position.set(1.5,.88,0);outer.rotation.y=-Math.PI/2;scene.add(outer);
   const inner=new THREE.Group();inner.position.y=.08;inner.rotation.x=-.2;outer.add(inner);
@@ -1331,7 +1316,7 @@ function setSub(k){
 const camBase=V(1.16,.9,.035),lookGoal=V(1.5,.845,0),lookCur=lookGoal.clone(),lookEff=V(0,0,0);
 const GPU_POSE={hero:[339.74,1.52,3.32],cam:[339.25,1.5,2.15],look:[GX,1.3,3.6]};
 const POSE=[
-  {hero:[1.47,.99,0],cam:[1.19,1.02,.045],look:[1.5,.955,.012]},
+  {hero:[1.47,.99,0],cam:[1.19,1.02,.008],look:[1.5,.955,.008]},
   {hero:[7.4,4.5,.9],cam:[3.6,2.9,1.6],look:[22,10,-3.5]},
   {hero:[118,3.5,0],cam:[111,6.2,3.4],look:[140,-1,0]},
   {hero:[306.5,1.8,0],cam:[302.6,2.5,1.3],look:[312,2.6,0]},
@@ -1605,6 +1590,8 @@ const itemHTML=(it,cls="")=>Array.isArray(it)?`<div class="stat"><b>${it[0]}</b>
 /* the caption is a title plus ONE short line (or one big number) at a time */
 function renderHUD(){
   $("caption").classList.toggle("intro",introOn);
+  document.body.classList.toggle("desk-view",!introOn&&(current===0||current===HOME)&&beat<0);
+  wifiLabel.visible=!introOn&&(current===1||(current===0&&beat>=0));
   if(introOn){
     const html=`<h2>${ui.introTitle}</h2>${itemHTML(ui.introSay)}`;
     if(html!==capKey){capKey=html;capTitle=ui.introTitle;$("caption").innerHTML=html;}
@@ -1817,6 +1804,7 @@ function step(dt,draw){
   sun.intensity=zoneCur.sun;hemi.intensity=zoneCur.hemi;fill.intensity=zoneCur.fill;renderer.toneMappingExposure=zoneCur.exp;
   skyGroup.visible=zn==="out"||zn==="room";skyGroup.position.copy(camera.position);
   setShadowExt(zn==="room"?6:45);
+  writingDesk.lampLight.visible=zn==="room";
   sun.target.position.copy(focus);sun.position.copy(focus).addScaledVector(SUN_DIR,140);
   fill.position.copy(focus);
   seaLabel.visible=zn==="sea";fill.position.y+=zn==="model"?5:2.6;fill.position.z+=zn==="model"?7:0;
@@ -1842,9 +1830,9 @@ function step(dt,draw){
 }
 
 /* boot */
-/* extra detail for the room, the sea floor, the data hall and the inside of the AI (see detail.js) */
+/* Extra detail for the sea floor, data hall and AI (see detail.js). */
 const H={scene,model,plant,scatter,M,E,bx,cyl,beam,canvasTex,seaY,seaCurves,GLOW,ms};
-roomDetail(H);hallDetail(H);
+hallDetail(H);
 const seaTick=seaDetail(H),modelTick=modelDetail(H);
 applyLanguage();
 placeAt(0);
