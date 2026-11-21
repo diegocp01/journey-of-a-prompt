@@ -2,6 +2,7 @@
    sill, y is height above the tabletop, and positive z points into the room. */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import {fitDesk, addDimmer, addBookmark} from './desk-joinery.js';
 import { oliveBranches } from './desk-olive.js';
 import { buildRouter } from './desk-router.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
@@ -20,12 +21,12 @@ function mesh(parent, geometry, mat, x = 0, y = 0, z = 0) {
   return object;
 }
 
-function turned(parent, points, mat, x = 0, y = 0, z = 0) {
+function turned(parent, points, mat, x = 0, y = 0, z = 0, segments = 72) {
   return mesh(
     parent,
     new THREE.LatheGeometry(
       points.map(([r, h]) => new THREE.Vector2(r, h)),
-      72,
+      segments,
     ),
     mat,
     x,
@@ -83,7 +84,9 @@ function windowReflections(pmrem) {
     card.lookAt(center);
     room.add(card);
   }
-  card(-2.5, 1.0, -0.6, 0.63, 3.5, [5.3, 4.2, 3.1]);
+  // A wall opposite the glazing returns a broad, warm reflection. Its solid
+  // angle matters on the narrow stem, where a small bright card looks like a spark.
+  card(-2.5, 1.0, -0.6, 1.35, 3.5, [2.65, 2.12, 1.64]);
   card(-1.4, 2.7, 0.8, 2.4, 2.0, [0.69, 0.61, 0.51]);
   card(0.1, -2.0, 0.1, 6, 5, [0.22, 0.135, 0.082]);
   for (const z of [-1.38, 0, 1.38]) card(2.5, 0.83, z, 1.3, 2, [1.0, 1.08, 1.2]);
@@ -158,7 +161,7 @@ function lamp(parent, brass) {
   pole.add(new THREE.LineCurve3(V(0, 0.038, 0), V(0, 0.331, 0)));
   pole.add(new THREE.QuadraticBezierCurve3(V(0, 0.331, 0), V(0, 0.367, 0), V(0.033, 0.367, 0)));
   pole.add(new THREE.LineCurve3(V(0.033, 0.367, 0), V(0.151, 0.367, 0)));
-  mesh(parent, new THREE.TubeGeometry(pole, 72, 0.0039, 16, false), brass);
+  mesh(parent, new THREE.TubeGeometry(pole, 72, 0.0039, 32, false), brass);
   const shadeX = 0.151;
   const head = new THREE.Group();
   head.position.y = 0.033;
@@ -203,7 +206,9 @@ function lamp(parent, brass) {
   )
     .getPoints(30)
     .map((p) => [p.x, p.y]);
-  const spunShade = turned(head, [[0.0905, 0.2788], [0.0917, 0.2783], [0.0924, 0.2788], ...profile], brass, shadeX);
+  const spunShade = turned(
+    head, [[0.0905, 0.2788], [0.0917, 0.2783], [0.0924, 0.2788], ...profile], brass, shadeX, 0, 0, 144,
+  );
   // The thin folded rim sits inside the shadow bias at this scale.
   spunShade.receiveShadow = false;
   turned(
@@ -385,7 +390,8 @@ function oliveVase(parent) {
       y = pos.getY(i),
       z = pos.getZ(i),
       a = Math.atan2(x, z);
-    const wobble = 1 + 0.006 * Math.sin(3 * a + y * 25) + 0.003 * Math.cos(5 * a - y * 14);
+    const throwingRings = .0028 * Math.sin(y * 1450 + .35 * Math.sin(a)) + .0022 * Math.sin(y * 730 + a * .8);
+    const wobble = 1 + throwingRings + 0.006 * Math.sin(3 * a + y * 25) + 0.003 * Math.cos(5 * a - y * 14);
     pos.setXYZ(i, x * wobble, y, z * wobble);
     uv.setXY(i, uv.getX(i), 0.18 + y / 0.2);
   }
@@ -474,6 +480,8 @@ export function createWritingDesk(scene, pmrem) {
   };
   const taskLamp = group('Brass reading lamp', 0.095),
     lampLight = lamp(taskLamp, brass);
+  addDimmer(taskLamp, brass);
+  fitDesk(desk, walnut, brass);
   // The broad bounce from the window-side wall lights the vase from the
   // left and gives the satin router shell a grazing highlight.
   const windowFill = new THREE.RectAreaLight(0xffdab5, 2.3, 0.56, 0.46);
@@ -483,6 +491,7 @@ export function createWritingDesk(scene, pmrem) {
   const book = group('Linen design book', 0.115);
   book.rotation.y = -0.045;
   linenBook(book);
+  addBookmark(book);
   const vase = new THREE.Group();
   vase.name = 'Olive branches in stoneware';
   vase.position.set(-0.012, 0.0345, 0);

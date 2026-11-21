@@ -1,3 +1,4 @@
+import {dieSurface} from './silicon.js';
 // These two stops share the tour's actual prompt, prediction and example token IDs.
 const lesson = document.getElementById('chipLesson');
 
@@ -32,7 +33,9 @@ function chipDiagram(ui) {
   const face = node('div', 'chip-face');
   face.append(node('span', 'chip-engraving', ui.labels.gpu));
   const die = node('div', 'chip-die');
-  for (let i = 0; i < 6; i++) die.append(node('i', 'chip-core'));
+  const silicon = dieSurface();
+  silicon.className = 'chip-core';
+  die.append(silicon);
   face.append(die);
   housing.append(face);
   process.append(housing, node('strong', 'chip-sr', ui.labels.gpu), node('span', 'chip-process-caption', copy.lane));
@@ -64,6 +67,7 @@ function tokenDiagram(ui) {
   const buttons = ui.tokens.map((token, i) => {
     const button = node('button', 'token-key', token.word);
     button.type = 'button';
+    button.style.setProperty('--token-color', token.color);
     button.addEventListener('click', () => select(i));
     pieces.append(button);
     return button;

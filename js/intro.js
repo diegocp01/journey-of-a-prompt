@@ -5,10 +5,13 @@
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
 
+import {paintPhone,phoneLayout} from './phone-screen.js';
+import {detailMiniatures} from './intro-miniatures.js';
+
 export const INTRO_AT = new THREE.Vector3(-2000, 0, 0);
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
-export function createIntro(scene, glow) {
+export function createIntro(scene, glow, copy) {
   const root = new THREE.Group();
   root.name = 'Intro';
   root.position.copy(INTRO_AT);
@@ -24,24 +27,27 @@ export function createIntro(scene, glow) {
   /* a dark glossy floor with a faint grid, fading into the background */
   const floor = new THREE.Mesh(new THREE.CircleGeometry(46, 72), mat(0x0a1024, {r: .32, m: .65, env: .9}));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; root.add(floor);
-  const grid = new THREE.GridHelper(72, 72, 0x2a3f7a, 0x16224a);
-  grid.position.y = .012; grid.material.transparent = true; grid.material.opacity = .55; root.add(grid);
+  floor.position.y = -.675;
+  const falloff = canvasTex(128,128,(g,w,h)=>{
+    const a=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);
+    a.addColorStop(0,'white');a.addColorStop(.28,'#f5f5f5');a.addColorStop(.64,'#444');a.addColorStop(1,'black');
+    g.fillStyle=a;g.fillRect(0,0,w,h);
+  });
+  falloff.colorSpace=THREE.NoColorSpace;
+  floor.material.alphaMap=falloff;floor.material.transparent=true;floor.material.depthWrite=false;
 
   /* ---- the phone ---- */
   const phone = new THREE.Group();
   phone.position.set(-6.3, 2.05, 0); phone.rotation.set(-.08, .5, .04); root.add(phone);
   add(new THREE.Mesh(new RoundedBoxGeometry(1.6, 3.2, .2, 5, .12), mat(0x16181d, {r: .25, m: .9, env: 1.3})), 0, 0, 0, phone);
-  const screenTex = canvasTex(256, 520, (g, w, h) => {
-    g.fillStyle = '#f5f7fb'; g.beginPath(); g.roundRect(0, 0, w, h, 34); g.fill();
-    g.fillStyle = '#111'; g.beginPath(); g.roundRect(w / 2 - 38, 16, 76, 22, 11); g.fill();
-    g.fillStyle = '#0a84ff'; g.beginPath(); g.roundRect(66, 110, 170, 74, 24); g.fill();
-    g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(88, 132, 124, 9); g.fillRect(88, 152, 84, 9);
-    g.fillStyle = '#fff'; g.strokeStyle = 'rgba(0,0,0,.1)'; g.lineWidth = 2; g.beginPath(); g.roundRect(16, 386, w - 32, 104, 26); g.fill(); g.stroke();
-    g.fillStyle = '#c9ced8'; g.fillRect(36, 412, 110, 9);
-    g.fillStyle = '#0a84ff'; g.beginPath(); g.arc(w - 58, 448, 26, 0, 7); g.fill();
-    g.strokeStyle = '#fff'; g.lineWidth = 6; g.lineCap = 'round'; g.lineJoin = 'round';
-    g.beginPath(); g.moveTo(w - 58, 461); g.lineTo(w - 58, 436); g.moveTo(w - 70, 447); g.lineTo(w - 58, 435); g.lineTo(w - 46, 447); g.stroke();
-  });
+  const screenTex=canvasTex(phoneLayout.width,phoneLayout.height,()=>{});
+  function setLanguage(ui) {
+    const c=screenTex.image,g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);
+    g.save();g.beginPath();g.roundRect(0,0,c.width,c.height,40);g.clip();
+    paintPhone(g,c.width,c.height,ui,{mode:'draft'},false,0,0);
+    g.restore();screenTex.needsUpdate=true;
+  }
+  setLanguage(copy);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.44, 2.98), new THREE.MeshBasicMaterial({map: screenTex, transparent: true, toneMapped: false, color: 0xe6e6e6}));
   screen.position.z = .104; phone.add(screen);
   const phoneLight = new THREE.PointLight(0xbfd6ff, 5, 9, 2); phoneLight.position.set(-5.4, 2.2, 1.6); root.add(phoneLight);
@@ -66,11 +72,6 @@ export function createIntro(scene, glow) {
     r.position.set(0, 3.75, 0); tower.add(r); return r;
   });
 
-  /* ---- the sea, as a block of water the cable runs through ---- */
-  const water = new THREE.Mesh(new RoundedBoxGeometry(3.4, .62, 3, 4, .12),
-    new THREE.MeshStandardMaterial({color: 0x2a86d8, transparent: true, opacity: .34, roughness: .08, metalness: .1, envMapIntensity: 1.3, depthWrite: false}));
-  water.position.set(1.05, .32, 0); root.add(water);
-
   /* ---- the data center ---- */
   const dc = new THREE.Group();
   dc.position.set(6.3, 0, 0); root.add(dc);
@@ -93,6 +94,8 @@ export function createIntro(scene, glow) {
   add(new THREE.Mesh(new THREE.BoxGeometry(.05, .05, .97), cyan), -1.82, 1.0, 0, dc);
   [[-.9, -.6], [.2, .5], [1.1, -.5]].forEach(([x, z]) => add(new THREE.Mesh(new THREE.BoxGeometry(.7, .32, .7), mat(0x3a4560, {r: .5, m: .5})), x, 2.56, z, dc));
   const dcLight = new THREE.PointLight(0x35d6ff, 6, 10, 2); dcLight.position.set(5.2, 2.4, 2.4); root.add(dcLight);
+
+  detailMiniatures(root, phone, tower, dc);
 
   /* ---- the road the message takes ---- */
   const air = new THREE.CatmullRomCurve3([V(-6.0, 3.75, .25), V(-4.9, 4.75, .12), V(-3.4, 4.7, .03), V(-2.4, 3.9, 0)], false, 'centripetal');
@@ -122,11 +125,11 @@ export function createIntro(scene, glow) {
     }
     a.needsUpdate = b.needsUpdate = true;
     rings.forEach((r, i) => { const k = (t * .45 + i / 3) % 1; r.scale.setScalar(.25 + 1.5 * k); r.material.opacity = .7 * (1 - k); });
-    phone.position.y = 2.05 + Math.sin(t * 1.1) * .07; phone.rotation.y = .5 + Math.sin(t * .6) * .06;
+    phone.position.y = 1.90;
     beacon.material.emissiveIntensity = Math.sin(t * 4) > 0 ? 4.5 : .6;
     dcLight.intensity = 6 + Math.sin(t * 2.3) * 1.2;
     /* a slow turn of the whole model, so its depth shows */
     root.rotation.y = Math.sin(t * .22) * .13;
   }
-  return {root, tick};
+  return {root, tick, setLanguage};
 }

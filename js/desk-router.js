@@ -176,6 +176,29 @@ export function buildRouter(parent, brass) {
   ]);
   part(new THREE.TubeGeometry(lead, 20, 0.00165, 8, false), rubber);
   part(new THREE.CylinderGeometry(0.0031, 0.0034, 0.0095, 16).rotateX(Math.PI / 2), rubber, 0.045, 0.022, -0.054);
+  const networkCord = new THREE.MeshStandardMaterial({color:0xa79b83,roughness:.72});
+  const boot = new THREE.MeshStandardMaterial({color:0x8e856f,roughness:.55});
+  const plug = new THREE.MeshPhysicalMaterial({color:0xcfd4c8,roughness:.27,clearcoat:.33});
+  part(block(.012,.007,.010,.0012),plug,-.030,.0235,-.055);
+  part(block(.009,.0012,.008,.0004),plug,-.030,.0281,-.056);
+  part(block(.013,.0085,.012,.0021),boot,-.030,.023,-.063);
+  // Segmented strain relief opens towards the cable. The lead settles onto
+  // the wood, then runs along the sill and disappears behind the table.
+  for (let i=0;i<4;i++) {
+    part(new THREE.CylinderGeometry(.0038-i*.0003,.0039-i*.0003,.0016,16).rotateX(Math.PI/2),
+      boot,-.030,.023,-.071-i*.0027);
+  }
+  const ethernet = new THREE.CatmullRomCurve3([
+    V(-.030,.023,-.078),V(-.031,.021,-.087),V(-.043,.009,-.102),V(-.063,.0023,-.109),
+    V(-.103,.0022,-.106),V(-.13,.0022,-.118),V(-.135,.0022,-.158),V(-.153,.0022,-.36)]);
+  part(new THREE.TubeGeometry(ethernet,58,.00215,10),networkCord);
+  for(const side of [-1,1]){
+    const x=side*.083;
+    part(new THREE.CylinderGeometry(.00645,.00645,.0009,28),rubber,x,.047,-.0285);
+    const pin=new THREE.CylinderGeometry(.0021,.0021,.0012,20).rotateZ(Math.PI/2);
+    part(pin,socket,x+side*.0056,.0503,-.0285);
+  }
+
   // Light inside the opal lens diffuses slightly into the surrounding case.
   const glow = document.createElement('canvas');
   glow.width = 96;

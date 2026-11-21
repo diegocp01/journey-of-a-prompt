@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
-const MODEL_URL='https://assets.babylonjs.com/meshes/HandMeshes/r_hand_rhs.glb';
+const MODEL_URL=new URL('../assets/hand-right.glb',import.meta.url).href;
 const V=(x,y,z)=>new THREE.Vector3(x,y,z);
 const FINGERS=['index','middle','ring','little'];
 const chain=f=>['metacarpal','proxPhalanx','intPhalanx','distPhalanx','tip'].map(k=>`${f}_${k}_R`);
@@ -124,7 +124,7 @@ float creaseF(vec3 p){
   float c=0.;
   for(int j=0;j<${SKIN_J};j++){
     vec3 d=p-uJ[j];float al=dot(d,uA[j]);float rad=length(d-al*uA[j]);
-    float m=exp(-al*al/(.0046*.0046))*smoothstep(.021,.012,rad);
+    float m=exp(-al*al/(.0046*.0046))*(1.-smoothstep(.012,.021,rad));
     float wob=sNoise(p*420.)*3.5+sNoise(p*90.)*2.;
     float s=sin(al*3000.+wob);
     c=max(c,m*pow(max(0.,-s),2.5)*(.55+.45*sNoise(p*900.)));
@@ -274,10 +274,18 @@ vec3 skinBump(vec3 pos,vec3 n,float fd){
       h.add(nail);nail.updateMatrixWorld(true);B[dn].attach(nail);nails.push(nail);
     });
     /* forearm, so the hand does not end in mid-air */
-    const arm=new THREE.Mesh(new THREE.CylinderGeometry(1,1.12,.34,36,1,false),skin);
-    const ac=new Float32Array(arm.geometry.attributes.position.count*3);for(let i=0;i<ac.length;i+=3) base.toArray(ac,i);
-    arm.geometry.setAttribute('color',new THREE.BufferAttribute(ac,3));
-    arm.scale.set(.0272,1,.0196);arm.position.set(.004,-.163,.006);arm.castShadow=true;h.add(arm);
+    const forearm=new THREE.CylinderGeometry(1,1,.34,48,24,false);
+    const ap=forearm.attributes.position,ac=new Float32Array(ap.count*3);
+    for(let i=0;i<ap.count;i++){
+      const y=ap.getY(i)-.163,t=THREE.MathUtils.clamp(-y/.33,0,1);
+      const x=ap.getX(i),z=ap.getZ(i),angle=Math.atan2(z,x);
+      const muscle=Math.sin(Math.PI*t*.95),wrist=Math.exp(-(((t-.11)/.09)**2));
+      const ridge=.0015*wrist*Math.cos(2*angle+.55)+.0016*muscle*Math.cos(3*angle+.7*t);
+      ap.setXYZ(i,.004+.004*t+x*(.0272+.012*muscle+ridge),y,.006-.004*t+z*(.0196+.010*muscle+ridge));
+      c.copy(base).lerp(palm,.30*Math.max(0,z)).lerp(pink,.09*wrist).toArray(ac,i*3);
+    }
+    forearm.computeVertexNormals();forearm.setAttribute('color',new THREE.BufferAttribute(ac,3));
+    const arm=new THREE.Mesh(forearm,skin);arm.castShadow=true;h.add(arm);
     R={h,B,P,rest,mesh,nails,arm,thumbDorsal,skinU,skin};
     pose(last);
   });

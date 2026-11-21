@@ -73,9 +73,9 @@ function fishShape(deep) {
     index = [],
     segments = 36,
     sides = 32;
-  const belly = new THREE.Color(deep ? 0xd7cec0 : 0xd7e3df),
-    flank = new THREE.Color(deep ? 0x929997 : 0x8daaaa),
-    back = new THREE.Color(deep ? 0x485858 : 0x344e54);
+  const belly = new THREE.Color(deep ? 0xcdc5aa : 0xc4d5cf),
+    flank = new THREE.Color(deep ? 0x938976 : 0x8da6a2),
+    back = new THREE.Color(deep ? 0x625e54 : 0x386067);
   for (let i = 0; i <= segments; i++) {
     const t = i / segments,
       p = sections.getPoint(t),
@@ -91,6 +91,9 @@ function fishShape(deep) {
       const col = flank.clone().lerp(y > 0 ? back : belly, Math.abs(y) ** 0.78);
       const scales = (Math.sin(i * 3.7 + j * 0.77) * 0.5 + 0.5) * 0.08;
       const lateralLine = Math.exp(-Math.abs(y - 0.1) * 28) * 0.19;
+      // Countershading and reflective opercula read at school distance.
+      const cheek = Math.exp(-((p.x - (deep ? 0.31 : 0.245)) ** 2) / 0.005) * Math.max(0, 1 - y * y);
+      col.lerp(new THREE.Color(deep ? 0xa8a084 : 0xc9d6c1), cheek * 0.37);
       col.multiplyScalar(1 + scales - lateralLine);
       colors.push(col.r, col.g, col.b);
       if (i < segments) {
@@ -234,6 +237,29 @@ function fishShape(deep) {
       0x9eafac,
     );
   }
+  if (!deep) {
+    // The narrow caudal peduncle carries small finlets ahead of the fork.
+    for (let i = 0; i < 4; i++) {
+      const x = -0.393 + i * 0.038,
+        y = 0.043 + i * 0.014;
+      for (const side of [-1, 1]) {
+        const base = [
+          [x - 0.012, side * y, 0],
+          [x, side * (y + 0.002), 0],
+          [x + 0.025, side * (y + 0.008), 0],
+        ];
+        fin(
+          base,
+          [
+            [x - 0.012, side * y, 0],
+            [x - 0.006, side * (y + 0.035), 0],
+            [x + 0.025, side * (y + 0.008), 0],
+          ],
+          0x667d78,
+        );
+      }
+    }
+  }
   for (const side of [-1, 1]) {
     const eyeX = deep ? 0.325 : 0.268,
       eyeY = deep ? 0.067 : 0.05,
@@ -282,6 +308,7 @@ function fishShape(deep) {
   }
   const result = mergeGeometries(parts);
   parts.forEach((g) => g.dispose());
+  if (!deep) result.scale(1, 0.82, 0.95);
   return result;
 }
 
@@ -308,6 +335,31 @@ export function createOceanFish(parent, bedHeight, random) {
       ctx.ellipse(x + 1.1, y + 0.2, 5.4, 4.5, 0.12, -0.9, 0.9);
       ctx.stroke();
     }
+  const pelagic = document.createElement('canvas');
+  pelagic.width = canvas.width;
+  pelagic.height = canvas.height;
+  const flankCtx = pelagic.getContext('2d');
+  flankCtx.drawImage(canvas, 0, 0);
+  // Narrow, irregular dorsal bars fade to silver well above the lateral line.
+  flankCtx.lineCap = 'round';
+  for (let i = 0; i < 20; i++) {
+    const x = 102 + i * 14,
+      top = 11 + 3 * Math.sin(i * 3.4),
+      bottom = 58 + 19 * Math.sin(i * 2.13) ** 2;
+    const fade = flankCtx.createLinearGradient(x, top, x, bottom);
+    fade.addColorStop(0, 'rgba(28,48,46,.68)');
+    fade.addColorStop(0.65, 'rgba(38,55,51,.55)');
+    fade.addColorStop(1, 'rgba(54,72,69,.04)');
+    flankCtx.strokeStyle = fade;
+    flankCtx.lineWidth = 3.3 + (i % 3) * 0.65;
+    flankCtx.beginPath();
+    flankCtx.moveTo(x, top);
+    flankCtx.bezierCurveTo(x - 15, top + 20, x + 15, bottom - 27, x - 6, bottom);
+    flankCtx.stroke();
+  }
+  const pelagicMap = new THREE.CanvasTexture(pelagic);
+  pelagicMap.colorSpace = THREE.SRGBColorSpace;
+  pelagicMap.anisotropy = 4;
   const scales = new THREE.CanvasTexture(canvas);
   scales.colorSpace = THREE.SRGBColorSpace;
   scales.anisotropy = 4;
@@ -399,7 +451,14 @@ export function createOceanFish(parent, bedHeight, random) {
     });
   }
   const meshes = schools.map((fish, i) => {
-    const m = new THREE.InstancedMesh(fishShape(i === 1), material, fish.length);
+    let surface = material;
+    if (i === 0) {
+      surface = material.clone();
+      surface.map = pelagicMap;
+      surface.roughness = 0.41;
+      surface.onBeforeCompile = material.onBeforeCompile;
+    }
+    const m = new THREE.InstancedMesh(fishShape(i === 1), surface, fish.length);
     m.name = i ? 'Deep-water grenadiers' : 'Silvery coastal shoals';
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     m.frustumCulled = false;
