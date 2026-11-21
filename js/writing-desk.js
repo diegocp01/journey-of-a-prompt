@@ -485,6 +485,7 @@ export function createWritingDesk(scene, studio) {
   }
   return {
     lampLight,
+    woodMap,
     frame(aspect) {
       // Allow for the wider portrait camera lens and preserve the props' proportions.
       const spread = THREE.MathUtils.clamp(aspect * (aspect < 1 ? 0.94 : 0.6), 0.35, 1);
