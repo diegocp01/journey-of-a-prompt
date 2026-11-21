@@ -17,6 +17,8 @@ import {createTunnel,TUNNEL_AT} from './tunnel.js';
 import {seaDetail,hallDetail,modelDetail} from './detail.js';
 import {createWritingDesk} from './writing-desk.js';
 
+import {seaY,bedHeight} from './seafloor.js';
+
 /* =====================================================================
    COPY
    ===================================================================== */
@@ -289,7 +291,7 @@ const ZONES={
   intro:{fog:0x060a1c,den:.014,sun:1.1,hemi:.75,fill:0,exp:1.02,env:.55},
   out:{fog:0xb9d3ea,den:.0026,sun:1.9,hemi:1.5,fill:0,exp:.95,env:.6},
   room:{fog:0xb9d3ea,den:.0026,sun:.55,hemi:1.25,fill:0,exp:.92,env:.5},
-  sea:{fog:0x050d38,den:.026,sun:.75,hemi:.5,fill:10,exp:1.05,env:.12},
+  sea:{fog:0x10313d,den:.064,sun:.16,hemi:.80,fill:30,exp:1.10,env:.29},
   dc:{fog:0x070a12,den:.011,sun:0,hemi:.6,fill:34,exp:1.05,env:.32},
   model:{fog:0x07061c,den:.009,sun:0,hemi:.7,fill:26,exp:1.05,env:.3},
   space:{fog:0x020617,den:0,sun:2.6,hemi:.5,fill:0,exp:1.05,env:.08}
@@ -311,7 +313,6 @@ function zoneOf(p){
    WORLD: ground, sea, house
    ===================================================================== */
 let ocean=null,underSea=null;
-const seaY=x=>(x<=130||x>=250)?0:-14*Math.pow(Math.sin(Math.PI*(x-130)/120),.7);
 {
   const gt=canvasTex(256,256,(g,w,h)=>{
     g.fillStyle="#2c3b2c";g.fillRect(0,0,w,h);
@@ -322,20 +323,6 @@ const seaY=x=>(x<=130||x>=250)?0:-14*Math.pow(Math.sin(Math.PI*(x-130)/120),.7);
   [[-85,430],[475,450]].forEach(([cx,w])=>{
     const p=new THREE.Mesh(new THREE.PlaneGeometry(w,700),gm);p.rotation.x=-Math.PI/2;p.position.set(cx,-.02,0);p.receiveShadow=true;scene.add(p);
   });
-  const sb=new THREE.PlaneGeometry(120,700,40,1);sb.rotateX(-Math.PI/2);
-  const pa=sb.attributes.position;
-  for(let i=0;i<pa.count;i++) pa.setY(i,seaY(pa.getX(i)+190)-.02);
-  sb.computeVertexNormals();
-  const rip=canvasTex(256,256,(g,w,h)=>{
-    const im=g.createImageData(w,h),TAU=Math.PI*2;
-    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
-      const v=.5+.5*Math.sin(TAU*8*x/w+.9*Math.sin(TAU*y/h)+.5*Math.sin(TAU*3*y/h+1)),k=(y*w+x)*4,c=125+105*v;
-      im.data[k]=c*.62;im.data[k+1]=c*.72;im.data[k+2]=c;im.data[k+3]=255;
-    }
-    g.putImageData(im,0,0);
-  });rip.redraw();rip.tex.wrapS=rip.tex.wrapT=THREE.RepeatWrapping;rip.tex.repeat.set(26,150);
-  const sandMat=new THREE.MeshStandardMaterial({color:0x2c3fa8,map:rip.tex,bumpMap:rip.tex,bumpScale:1.6,roughness:.92,metalness:0,envMapIntensity:.05});
-  const seabed=new THREE.Mesh(sb,sandMat);seabed.position.x=190;seabed.receiveShadow=true;scene.add(seabed);
   const water=new THREE.Mesh(new THREE.PlaneGeometry(120,700),new THREE.MeshStandardMaterial({color:0x1d5f8f,roughness:.16,metalness:.1,transparent:true,opacity:.82,side:THREE.DoubleSide,envMapIntensity:.6}));
   water.rotation.x=-Math.PI/2;water.position.set(190,-.15,0);scene.add(water);underSea=water;
   texLoader.load("https://cdn.jsdelivr.net/gh/mrdoob/three.js@r170/examples/textures/waternormals.jpg",wn=>{
@@ -343,17 +330,6 @@ const seaY=x=>(x<=130||x>=250)?0:-14*Math.pow(Math.sin(Math.PI*(x-130)/120),.7);
     ocean=new Water(new THREE.PlaneGeometry(120,700),{textureWidth:512,textureHeight:512,waterNormals:wn,sunDirection:SUN_DIR.clone(),sunColor:0x5f7f95,waterColor:0x0b5c8c,distortionScale:1.2,fog:true});
     ocean.rotation.x=-Math.PI/2;ocean.position.set(190,-.15,0);ocean.material.uniforms.size.value=.5;scene.add(ocean);
   });
-  /* rocks + drifting specks under water */
-  const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,1),M(0x0c1236,{r:.95,env:.05}),420),d=new THREE.Object3D();
-  for(let i=0;i<420;i++){const x=134+Math.random()*112,near=i<300,zz=near?.9+Math.random()*9:10+Math.random()*16,sc=near?.07+Math.random()*.3:.4+Math.random()*1.3;d.position.set(x,seaY(x)+sc*.25,(Math.random()<.5?-1:1)*zz);d.scale.set(sc*(.8+Math.random()*.6),sc*(.5+Math.random()*.4),sc*(.8+Math.random()*.6));d.rotation.set(Math.random()*3,Math.random()*3,0);d.updateMatrix();rocks.setMatrixAt(i,d.matrix);}
-  scene.add(rocks);
-  /* low dark hills at the edge of sight */
-  const hills=new THREE.InstancedMesh(new THREE.SphereGeometry(1,18,10),M(0x0a1140,{r:1,env:.03}),16);
-  for(let i=0;i<16;i++){const x=136+i*7+Math.random()*4;d.position.set(x,seaY(x)-1,(i%2?-1:1)*(27+Math.random()*12));d.scale.set(11+Math.random()*9,3+Math.random()*4.5,8+Math.random()*6);d.rotation.set(0,Math.random()*3,0);d.updateMatrix();hills.setMatrixAt(i,d.matrix);}
-  scene.add(hills);
-  const sp=[];for(let i=0;i<1500;i++){const x=132+Math.random()*116;sp.push(x,seaY(x)+Math.random()*(-seaY(x)),(Math.random()-.5)*36);}
-  const spg=new THREE.BufferGeometry();spg.setAttribute("position",new THREE.Float32BufferAttribute(sp,3));
-  scene.add(new THREE.Points(spg,new THREE.PointsMaterial({map:GLOW,color:0xdfe8ff,size:.13,transparent:true,opacity:.8,depthWrite:false,blending:THREE.AdditiveBlending})));
   /* trees + far hills */
   /* fir trees built from real twig and bark photos (see nature.js) */
   const spots=[];
@@ -663,10 +639,10 @@ let beacon,towerCab;
 /* a real cable with light inside: it has a body that takes the daylight, and only glows strongly in the dark */
 const cableMat=new THREE.MeshStandardMaterial({color:0x16384a,emissive:0x35d6ff,emissiveIntensity:1.5,roughness:.45,metalness:.2,envMapIntensity:.5});
 const curves=[];
-const ribs=canvasTex(64,8,(g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,"#1c2757");gr.addColorStop(.5,"#a9b9f2");gr.addColorStop(1,"#1c2757");g.fillStyle=gr;g.fillRect(0,0,w,h);});
-ribs.redraw();ribs.tex.wrapS=ribs.tex.wrapT=THREE.RepeatWrapping;ribs.tex.repeat.set(1100,1);
+const ribs=canvasTex(64,8,(g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,"#41545a");gr.addColorStop(.5,"#8c9d9c");gr.addColorStop(1,"#41545a");g.fillStyle=gr;g.fillRect(0,0,w,h);});
+ribs.redraw();ribs.tex.wrapS=ribs.tex.wrapT=THREE.RepeatWrapping;ribs.tex.repeat.set(360,1);
 /* the sea cables are armoured: dark, ribbed, with the light travelling inside */
-const seaCableMat=new THREE.MeshStandardMaterial({color:0x4f63c4,map:ribs.tex,bumpMap:ribs.tex,bumpScale:2,roughness:.5,metalness:.35,envMapIntensity:.5,emissive:0x1a2a8a,emissiveIntensity:.25});
+const seaCableMat=new THREE.MeshStandardMaterial({color:0x899d9d,map:ribs.tex,bumpMap:ribs.tex,bumpScale:.023,roughness:.64,metalness:.18,envMapIntensity:.42});
 function cable(points,r=.07,mat=cableMat,rad=6){
   const c=new THREE.CatmullRomCurve3(points.map(v3),false,"catmullrom",.4);
   const m=new THREE.Mesh(new THREE.TubeGeometry(c,Math.max(40,points.length*14),r,rad),mat);scene.add(m);curves.push(c);return c;
@@ -1629,7 +1605,7 @@ function step(dt,draw){
   amb+=dt;tickNature(amb);
   if(introOn){introFx.tick(amb);introCam(false);}
   tunnelFx.tick(amb,dt,tunnelSpeed);
-  if(typeof seaTick==="function"){seaTick(amb);modelTick(amb);}
+  if(typeof seaTick==="function"){seaTick(amb,camBase.x);modelTick(amb);}
   if(!waiting){
     let nc=clock+dt*(realSpeed?1:Math.min(1,rate*boost));
     if(softs.length&&nc>=softs[0]){if(amb<readUntil) nc=Math.max(clock,softs[0]-.0005);else softs.shift();}
@@ -1660,7 +1636,7 @@ function step(dt,draw){
   const hz=zoneOf(hero.position);
   heroDark+=((hz==="out"||hz==="room"?0:1)-heroDark)*(1-Math.exp(-dt*4));
   /* in dark places the paper is only lit enough to be seen; it shines like a light only inside the cables */
-  const shine=heroDark*lightOn;
+  const shine=heroDark*lightOn*(hz==="sea"?.40:1);
   heroPaper.color.lerpColors(PAPER_DAY,PAPER_DARK,heroDark);
   heroPaper.emissiveIntensity=.48*heroDark+.5*shine;heroFlap.emissiveIntensity=.42+.63*heroDark+1.15*shine;heroGlow.material.opacity=.04*heroDark+.46*shine;
   heroIn.scale.setScalar(1-.3*shine);flare.material.opacity=shine*.9;core.material.opacity=shine*.4;
@@ -1744,6 +1720,12 @@ function step(dt,draw){
   sun.target.position.copy(focus);sun.position.copy(focus).addScaledVector(SUN_DIR,140);
   fill.position.copy(focus);
   seaLabel.visible=zn==="sea";fill.position.y+=zn==="model"?5:2.6;fill.position.z+=zn==="model"?7:0;
+  if(zn==="sea"){
+    // A cool survey light just above the moving camera reveals near-field
+    // colour; distance fog absorbs it along the cable.
+    fill.position.lerpVectors(camera.position,lookCur,.28);
+    fill.position.y+=1.4;fill.position.z+=1.2;
+  }
 
   /* ambient life */
   curves.forEach((c,ci)=>{for(let j=0;j<7;j++){c.getPointAt((amb*(.05+ci*.004)+j/7+ci*.13)%1,tmpV);dummy.position.copy(tmpV);dummy.scale.setScalar(1-.45*dayK);dummy.rotation.set(0,0,0);dummy.updateMatrix();pulses.setMatrixAt(ci*7+j,dummy.matrix);}});
@@ -1767,7 +1749,7 @@ function step(dt,draw){
 
 /* boot */
 /* Extra detail for the sea floor, data hall and AI (see detail.js). */
-const H={scene,model,plant,scatter,M,E,bx,cyl,beam,canvasTex,seaY,seaCurves,GLOW,ms};
+const H={scene,model,plant,scatter,M,E,bx,cyl,beam,canvasTex,seaY,bedHeight,seaCurves,GLOW,ms};
 hallDetail(H);
 const seaTick=seaDetail(H),modelTick=modelDetail(H);
 applyLanguage();
