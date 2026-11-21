@@ -21,7 +21,7 @@ function copies(parent, geo, mat, list, {cast = false} = {}) {
 
 /* ====================================================================== the sea floor */
 export function seaDetail(h) {
-  const {scene, model, scatter, seaY, bedHeight, seaCurves, M, GLOW} = h, R = rng(31);
+  const {scene, model, scatter, seaY, bedHeight, seaCurves, seaRepeaterStops, M, GLOW} = h, R = rng(31);
   const depth = x => -seaY(x);
   /* seagrass, but only in the shallow water near each shore: nothing green grows 13,000 feet down */
   const blade = new THREE.PlaneGeometry(.1, 1, 1, 6); blade.translate(0, .5, 0);
@@ -54,13 +54,12 @@ export function seaDetail(h) {
   const steel = M(0x4c595a, {m: .8, r: .35, env: .9}), bands = M(0x9aa8a6, {m: .9, r: .3, env: 1});
   const up = V(0, 1, 0), q = new THREE.Quaternion(), e = new THREE.Euler();
   const sleeves = [], ends = [], rings = [];
-  seaCurves.forEach((c, ci) => [.3, .5, .7].forEach((u, k) => {
+  seaCurves.forEach((c, ci) => seaRepeaterStops.forEach(u => {
     const p = c.getPointAt(u + ci * .03 - .03), t = c.getTangentAt(u + ci * .03 - .03);
     q.setFromUnitVectors(up, t); e.setFromQuaternion(q);
     const at = (d, list, flip) => { const o = p.clone().addScaledVector(t, d); if (flip) { const q2 = new THREE.Quaternion().setFromUnitVectors(up, t.clone().negate()), e2 = new THREE.Euler().setFromQuaternion(q2); list.push({x: o.x, y: o.y, z: o.z, rx: e2.x, ry: e2.y, rz: e2.z}); } else list.push({x: o.x, y: o.y, z: o.z, rx: e.x, ry: e.y, rz: e.z}); };
     at(0, sleeves); at(1.12, ends); at(-1.12, ends, true);
     [-.6, 0, .6].forEach(d => { const o = p.clone().addScaledVector(t, d), qr = q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), Math.PI / 2)), er = new THREE.Euler().setFromQuaternion(qr); rings.push({x: o.x, y: o.y, z: o.z, rx: er.x, ry: er.y, rz: er.z}); });
-    void k;
   }));
   copies(scene, body, steel, sleeves); copies(scene, cone, steel, ends); copies(scene, band, bands, rings);
   const habitatTick=createOceanHabitat(scene,R,copies,GLOW);

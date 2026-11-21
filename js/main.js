@@ -656,11 +656,12 @@ function cable(points,r=.07,mat=cableMat,rad=6){
   const m=new THREE.Mesh(new THREE.TubeGeometry(c,Math.max(40,points.length*14),r,rad),mat);scene.add(m);curves.push(c);return c;
 }
 cable([[43,.1,-7],[55,.1,-3.2],[70,.1,-1.6],[80,.1,-3.6],[90,.1,-3.4],[100,.1,0],[112,.1,0],[120,.12,0]]);
+const seaCableRadius=.15, seaRepeaterStops=[.3,.5,.7];
 const seaCurves=[-7,0,7].map(zk=>{
   const pts=[[120,.12,0],[126,.12,zk*.08]];
   for(let x=130;x<=250;x+=6){const s=Math.sin(Math.PI*(x-130)/120);pts.push([x,seaY(x)+.13,zk*(.15+.85*s)]);}
   pts.push([256,.12,zk*.08],[262,.12,0]);
-  return cable(pts,.15,seaCableMat,14);
+  return cable(pts,seaCableRadius,seaCableMat,14);
 });
 cable([[262,.12,0],[280,.1,0],[300,.08,0],[313.2,.06,0]]);
 const pulses=new THREE.InstancedMesh(new THREE.SphereGeometry(.16,8,8),E(0xffd27a,3.6),curves.length*7);scene.add(pulses);
@@ -1234,6 +1235,37 @@ const TRAVEL=[null,
 ];
 const homePath=new THREE.CatmullRomCurve3([[1.5,1.03,-.13],[1.9,1.5,0],[2.7,1.7,0],[8,3.6,0],[40,14,-2],[80,7,0],[118,3.5,0],[130,.8,0],[150,-8,0],[190,-12.3,0],[230,-8,0],[250,.8,0],[263,3,0],[285,3,0],[298,2,0],[306,1.8,0],[313.5,1.6,0],[316,1.6,2.6],[319,1.6,2.6],[339.74,1.52,3.32]].map(v3),false,"catmullrom",.35);
 const HOME_LEN=homePath.getLength();
+const messageCable=seaCurves[1], messageCableLength=messageCable.getLength();
+const cableTangent=V(0,0,0), cablePoint=V(0,0,0);
+const onSeabed=x=>smooth(130,138,x)*(1-smooth(242,250,x));
+
+// Put the trail and the envelope's lower edge on the armor, including the thicker repeater sleeves.
+function cableSurfaceAt(u,point){
+  messageCable.getPointAt(u,point);
+  messageCable.getTangentAt(u,cableTangent);
+  const distance=Math.min(...seaRepeaterStops.map(stop=>Math.abs(u-stop)*messageCableLength));
+  // The sleeve has a straight barrel, conical ends and raised rings at its center and either side.
+  const taper=clamp01((1.395-distance)/.55);
+  const ringDistance=Math.min(distance,Math.abs(distance-.6));
+  const radius=seaCableRadius+.15*taper+.045*(1-smooth(.018,.073,ringDistance));
+  // Offset along the normal so the point also tracks the armor on a slope.
+  point.x-=(radius+.012)*cableTangent.y;
+  point.y+=(radius+.012)*cableTangent.x;
+}
+
+function followCableHome(point){
+  const weight=onSeabed(point.x);
+  if(!weight) return;
+  // The return trip uses a different spline. Find the same point on the cable by world X.
+  let lo=0,hi=1;
+  for(let i=0;i<14;i++){
+    const mid=(lo+hi)/2;
+    messageCable.getPointAt(mid,cablePoint);
+    if(cablePoint.x<point.x) lo=mid; else hi=mid;
+  }
+  cableSurfaceAt((lo+hi)/2,cablePoint);
+  point.lerp(cablePoint,weight);
+}
 
 function travel(o){
   at(o.delay||0,()=>{
@@ -1254,6 +1286,7 @@ function ride(u0,u1,dur,easing){
   tween(0,dur,p=>{
     const u=u0+(u1-u0)*p;
     homePath.getPointAt(u,hero.position);
+    followCableHome(hero.position);
     const s=heroScaleAt(hero.position);
     homePath.getPointAt(clamp01(u-dir*(2.6*s+.5)/HOME_LEN),camBase);
     camBase.y+=.3*s;
@@ -1325,7 +1358,16 @@ const actions=[
       setLegend(true);
     });
     let home=null,cc=null;
-    const rideTo=p=>{cc.getPointAt(p,camBase);seaCurves[1].getPointAt(clamp01(p*.96+.03),tmp);tmp.y+=.4;hero.position.lerpVectors(home,tmp,smooth(0,.07,p));lookGoal.copy(hero.position);lookCur.lerp(lookGoal,.5);};
+    const rideTo=p=>{
+      cc.getPointAt(p,camBase);
+      cableSurfaceAt(clamp01(p*.96+.03),tmp);
+      const contact=onSeabed(tmp.x);
+      tmp.y+=(1-contact)*.24;
+      hero.position.lerpVectors(home,tmp,smooth(0,.07,p));
+      lookGoal.copy(hero.position);
+      lookGoal.y+=.24*contact;
+      lookCur.lerp(lookGoal,.5);
+    };
     /* after about one second of that view, a flash of light, and we are outside watching the envelope run along the cable */
     at(1,()=>flash(()=>{
       placeAt(2);heroDark=0;
@@ -1635,7 +1677,7 @@ function step(dt,draw){
   const target=heroScaleOverride??heroScaleAt(hero.position);
   heroS+=(target-heroS)*(1-Math.exp(-dt*6));
   hero.scale.setScalar(Math.max(.0001,heroS*heroVis));
-  heroIn.position.y=Math.sin(amb*2.2)*.012;heroIn.rotation.z=Math.sin(amb*1.3)*.06;
+  const contact=onSeabed(hero.position.x);
   lockOn+=(lockGoal-lockOn)*(1-Math.exp(-dt*7));
   lockG.scale.setScalar(Math.max(.0001,lockOn));lockG.rotation.z=(1-lockOn)*1.4;
   lightGoal=hero.position.x>46&&hero.position.x<296?1:0;
@@ -1647,7 +1689,13 @@ function step(dt,draw){
   const shine=heroDark*lightOn*(hz==="sea"?.40:1);
   heroPaper.color.lerpColors(PAPER_DAY,PAPER_DARK,heroDark);
   heroPaper.emissiveIntensity=.48*heroDark+.5*shine;heroFlap.emissiveIntensity=.42+.63*heroDark+1.15*shine;heroGlow.material.opacity=.04*heroDark+.46*shine;
-  heroIn.scale.setScalar(1-.3*shine);flare.material.opacity=shine*.9;core.material.opacity=shine*.4;
+  const paperScale=(1-.3*shine)*(1-.12*contact);
+  heroIn.scale.setScalar(paperScale);
+  heroIn.rotation.set(-.72*contact,0,Math.sin(amb*1.3)*.06*(1-contact));
+  // Pivot the tilted paper about its bottom edge so camera billboarding keeps that edge on the cable.
+  heroIn.position.set(0,.054*paperScale*contact,0).applyQuaternion(heroIn.quaternion);
+  heroIn.position.y+=Math.sin(amb*2.2)*.012*(1-contact);
+  flare.material.opacity=shine*.9;core.material.opacity=shine*.4;
   heroLight.intensity=(hz==="sea"?.09:.3)*heroS*heroS*heroVis*(1+1.3*lightOn)*(.05+.3*heroDark+.65*shine);heroLight.distance=7*heroS;
   for(let k=TRAIL-1;k>0;k--){trailPos[k*3]=trailPos[k*3-3];trailPos[k*3+1]=trailPos[k*3-2];trailPos[k*3+2]=trailPos[k*3-1];}
   hero.position.toArray(trailPos,0);trailGeo.attributes.position.needsUpdate=true;
@@ -1757,7 +1805,7 @@ function step(dt,draw){
 
 /* boot */
 /* Extra detail for the sea floor, data hall and AI (see detail.js). */
-const H={scene,model,plant,scatter,M,E,bx,cyl,beam,canvasTex,seaY,bedHeight,seaCurves,GLOW,ms};
+const H={scene,model,plant,scatter,M,E,bx,cyl,beam,canvasTex,seaY,bedHeight,seaCurves,seaRepeaterStops,GLOW,ms};
 hallDetail(H);
 const seaTick=seaDetail(H),modelTick=modelDetail(H);
 applyLanguage();
