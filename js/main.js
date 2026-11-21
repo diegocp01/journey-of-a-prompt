@@ -1234,9 +1234,9 @@ function travel(o){
   });
 }
 /* chase camera along the long route (trip home + real-speed replay) */
-function ride(u0,u1,dur,easing){
+function ride(u0,u1,dur,easing,delay=0){
   const dir=Math.sign(u1-u0);
-  tween(0,dur,p=>{
+  tween(delay,dur,p=>{
     const u=u0+(u1-u0)*p;
     homePath.getPointAt(u,hero.position);
     followCableHome(hero.position);
@@ -1475,7 +1475,8 @@ function replay(){
   liveTimer=clock;
   const lin=t=>t*t*(3-2*t);
   ride(0,1,.45,lin);
-  at(.6,()=>ride(1,0,.4,lin));
+  // Queue both legs up front so the window approach finishes before the phone camera samples its start.
+  ride(1,0,.4,lin,.6);
   at(1,()=>{liveTimer=null;showTimer(20);phoneState.words=[...ui.answer];redrawPhone();});
   travel({delay:1,cam:[POSE[HOME].cam],look:POSE[HOME].look,dur:.6,follow:false});
   at(2,()=>{realSpeed=false;replayed=true;finale();});
