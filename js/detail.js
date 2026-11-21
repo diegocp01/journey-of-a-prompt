@@ -1,4 +1,4 @@
-/* Extra detail for four places: the room, the sea floor, the inside of the data center, and the inside of the AI.
+/* Extra detail for three places: the sea floor, the inside of the data center, and the inside of the AI.
    Each function takes the shared helpers from main.js (h) and returns a function to call every frame, or nothing. */
 import * as THREE from 'three';
 
@@ -16,34 +16,6 @@ function copies(parent, geo, mat, list, {cast = false} = {}) {
   });
   m.castShadow = cast; m.receiveShadow = true; m.frustumCulled = false; parent.add(m);
   return m;
-}
-
-/* ====================================================================== the room */
-export function roomDetail(h) {
-  const {scene, model, M, canvasTex, cyl} = h, DESK = .75;
-  /* put a model on the desk, scaled to a real-world size and standing on the desk top */
-  const put = (id, x, z, {size, wide = false, rot = 0, y = DESK} = {}) => model(id, m => {
-    const s = new THREE.Box3().setFromObject(m).getSize(V(0, 0, 0));
-    m.scale.setScalar(size / (wide ? Math.max(s.x, s.z) : s.y)); m.rotation.y = rot; m.updateMatrixWorld(true);
-    const b = new THREE.Box3().setFromObject(m);
-    m.position.set(x - (b.min.x + b.max.x) / 2, y - b.min.y, z - (b.min.z + b.max.z) / 2);
-    scene.add(m);
-  });
-  put('alarm_clock_01', 1.92, -.3, {size: .1, rot: -Math.PI / 2});
-  put('stationery_supplies', 1.9, .04, {size: .2, wide: true, rot: .5});
-  put('book_encyclopedia_set_01', 1.9, -.84, {size: .26, rot: -Math.PI / 2});
-  /* curtains at the two ends of the window, hanging from a rod */
-  const folds = canvasTex(128, 64, (g, w, hh) => {
-    for (let x = 0; x < w; x++) { const v = 205 + Math.round(34 * Math.sin(x / w * Math.PI * 14) + 10 * Math.sin(x / w * Math.PI * 37)); g.fillStyle = `rgb(${v},${v - 6},${v - 18})`; g.fillRect(x, 0, 1, hh); }
-  });
-  folds.redraw();
-  const cloth = new THREE.MeshStandardMaterial({map: folds.tex, bumpMap: folds.tex, bumpScale: 1.4, roughness: .95, side: THREE.DoubleSide, envMapIntensity: .15});
-  [-1.66, 1.66].forEach(z => {
-    const c = new THREE.Mesh(new THREE.PlaneGeometry(.66, 1.95, 1, 1), cloth);
-    c.rotation.y = -Math.PI / 2; c.position.set(1.955, 1.3, z); c.castShadow = true; scene.add(c);
-  });
-  const rod = cyl(.014, .014, 4.1, M(0x3b3028, {m: .7, r: .4, env: .6}), 1.955, 2.3, 0, 8);
-  rod.rotation.x = Math.PI / 2;
 }
 
 /* ====================================================================== the sea floor */
