@@ -13,6 +13,7 @@ import {createPhotoGrip} from './phone-grip.js';
 import {createForest,scatter,createClouds,tickNature} from './nature.js';
 import {createCity} from './city.js';
 import {createIntro,INTRO_AT} from './intro.js';
+import {createTunnel,TUNNEL_AT} from './tunnel.js';
 import {roomDetail,seaDetail,hallDetail,modelDetail} from './detail.js';
 
 /* =====================================================================
@@ -27,11 +28,11 @@ const DNS_ROWS=[["maps.example","203.0.113.20"],["mail.example","198.51.100.7"],
 let lang=new URLSearchParams(location.search).get("lang")==="es"?"es":"en",ui=appCopy[lang];
 let current=0,sub=0,done=false,busy=false,replayed=false,subNote="",beat=-1,item=0,fin=0;
 const MODEL=4,HOME=5;
-const BEATS=[[0,6.2],[0],[0,7.4,11],[0,5],null,[0]];
+const BEATS=[[0,6.2],[0],[0,6],[0,5],null,[0]];
 /* when the next short line of a step appears (story seconds from the start of the action) */
 /* story time in each beat when its picture is done and the main button turns on */
-const READY=[[2,10.9],[8.6],[7.1,8.6,17.4],[3.8,13.3],null,[3.4]];
-const ITEMS=[[[3,5.3],[8.7,10.9]],[[3.5,5.8]],[[3.1,5.2],[10.4],[14.2,16.8]],[[3],[9.6,11.8]],null,[[2.6]]];
+const READY=[[2,10.9],[8.6],[2.4,12.4],[3.8,13.3],null,[3.4]];
+const ITEMS=[[[3,5.3],[8.7,10.9]],[[3.5,5.8]],[[3.2],[9.2,11.8]],[[3],[9.6,11.8]],null,[[2.6]]];
 const beatTimes=i=>BEATS[i];
 const $=id=>document.getElementById(id);
 const V=(x,y,z)=>new THREE.Vector3(x,y,z);
@@ -44,7 +45,7 @@ const UP=V(0,1,0);
 const GX=340.56,MX=1000,ROW_Y=2.6;
 /* seconds since Send when each stop is reached: the network legs take hundredths of a second, the AI takes almost all of the 20 */
 const T=[0,.002,.01,.05,.1,19.9];
-const TMS=[[0,.001,.002],[.003,.01],[.012,.02,.03,.05],[.06,.08,.1],null,[19.95,20]];
+const TMS=[[0,.001,.002],[.003,.01],[.012,.03,.05],[.06,.08,.1],null,[19.95,20]];
 
 /* clock-driven task list (cancellable, pauses with the render loop) */
 let clock=0,tasks=[],temps=[];
@@ -241,6 +242,9 @@ const GLOW=glowTex();
 /* the opening screen's little 3D model of the whole trip (see intro.js) */
 const introFx=createIntro(scene,GLOW);
 let introOn=true;
+/* the ride inside the cable (see tunnel.js): it shows whenever the camera is there */
+const tunnelFx=createTunnel(scene,GLOW);
+let tunnelFov=0,tunnelSpeed=1,dayK=1;
 const tappables=[],placed={},LAMP_ROT=0;
 function tap(obj,can,fn){obj.traverse(o=>{if(o.isMesh){o.userData.can=can;o.userData.tap=fn;tappables.push(o);}});}
 const stopTap=i=>[()=>current===i&&!done&&!busy,()=>mainAction()];
@@ -276,6 +280,7 @@ function setShadowExt(e){if(e===shadowExt) return;shadowExt=e;const c=sun.shadow
 const fill=new THREE.PointLight(0xcfe0ff,0,60,1.6);scene.add(fill);
 
 const ZONES={
+  tunnel:{fog:0x04123f,den:0,sun:0,hemi:.4,fill:0,exp:1.05,env:.2},
   intro:{fog:0x060a1c,den:.014,sun:1.1,hemi:.75,fill:0,exp:1.02,env:.55},
   out:{fog:0xb9d3ea,den:.0026,sun:1.9,hemi:1.5,fill:0,exp:.95,env:.6},
   room:{fog:0xb9d3ea,den:.0026,sun:.55,hemi:1.25,fill:0,exp:.92,env:.5},
@@ -287,6 +292,7 @@ const ZONES={
 const zoneCur={fog:new THREE.Color(0xb9d3ea),den:.0026,sun:.55,hemi:1.25,fill:0,exp:.92,env:.5};
 const zoneCol=new THREE.Color();
 function zoneOf(p){
+  if(p.x<-2500) return "tunnel";
   if(p.x<-900) return "intro";
   if(p.x>1900) return "space";
   if(p.x>900) return "model";
@@ -586,8 +592,8 @@ let beacon,towerCab;
   cyl(1.1,1.1,.12,steel,0,26.2,0,16,tw);cyl(.09,.09,5.4,steel,0,28.6,0,8,tw);
   for(let i=0;i<3;i++){const a=i*2.1,p=bx(-.18,.18,26.6,28.3,-.08,.08,M(0xbfc3ca,{r:.85,env:.1}),{parent:tw});p.position.set(Math.cos(a)*.95,27.4,Math.sin(a)*.95);p.rotation.y=-a+Math.PI/2;}
   beacon=new THREE.Mesh(new THREE.SphereGeometry(.2,12,12),E(0xff3b3b,4));beacon.position.set(0,31.5,0);tw.add(beacon);
-  const vent=E(0xffb84a,.6),cl=new THREE.PointLight(0xffb84a,0,16,2);cl.position.set(44.9,1.3,-4.2);scene.add(cl);
-  bx(44.3,45.5,0,1.8,-5.9,-5,M(0xaeb5c0,{r:.85,env:.1}));bx(45.7,46.5,0,1.3,-5.8,-5.1,M(0x9fa7b3,{r:.85,env:.1}));
+  const vent=E(0xffb84a,.1),cl=new THREE.PointLight(0xffb84a,0,9,2);cl.position.set(44.9,1.3,-4.2);scene.add(cl);
+  bx(44.3,45.5,0,1.8,-5.9,-5,M(0x7c848e,{r:.7,m:.25,env:.3}));bx(45.7,46.5,0,1.3,-5.8,-5.1,M(0x727a85,{r:.7,m:.25,env:.3}));
   [.45,.7,.95,1.2,1.45].forEach(y=>bx(44.42,45.38,y,y+.11,-5.0,-4.985,vent,{cast:false}));
   towerCab={m:vent,l:cl};
   /* ---- the tower's working parts: footings, antennas, dishes, ladder, cables, railing ---- */
@@ -667,7 +673,8 @@ let beacon,towerCab;
   label("tower",42,33.4,-8,1.5);
   tap(tw,...stopTap(1));
 }
-const cableMat=E(0x35d6ff,1.5);
+/* a real cable with light inside: it has a body that takes the daylight, and only glows strongly in the dark */
+const cableMat=new THREE.MeshStandardMaterial({color:0x16384a,emissive:0x35d6ff,emissiveIntensity:1.5,roughness:.45,metalness:.2,envMapIntensity:.5});
 const curves=[];
 const ribs=canvasTex(64,8,(g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,"#1c2757");gr.addColorStop(.5,"#a9b9f2");gr.addColorStop(1,"#1c2757");g.fillStyle=gr;g.fillRect(0,0,w,h);});
 ribs.redraw();ribs.tex.wrapS=ribs.tex.wrapT=THREE.RepeatWrapping;ribs.tex.repeat.set(1100,1);
@@ -855,6 +862,7 @@ const signTex=canvasTex(1024,150,(g,w,h)=>{
    THE HERO: a sealed envelope of light
    ===================================================================== */
 const hero=new THREE.Group(),heroIn=new THREE.Group();hero.add(heroIn);scene.add(hero);
+const PAPER_DAY=new THREE.Color(0xb9b09c),PAPER_DARK=new THREE.Color(0xfbf3df);
 let heroS=.7,heroVis=0,heroScaleOverride=null,lockOn=0,lockGoal=0,lightOn=0,lightGoal=0,heroDark=0,heroPaper,heroFlap,heroGlow;
 const lockG=new THREE.Group();
 {
@@ -988,9 +996,6 @@ const stageBox={w:1,h:.5,y:0},GIB="x9#Kq7$Zm2&Bv4@Wd8!Rj%Yc5?Hs";
 const stageTex=canvasTex(1400,700,g=>{
   const w=g.canvas.width,h=g.canvas.height,s=stage,port=h>=w;
   g.clearRect(0,0,w,h);g.globalAlpha=1;g.shadowBlur=0;
-  if(s.mode==="dns") return drawDns(g,w,h,s,port);
-  if(s.mode==="relay") return drawRelay(g,w,h,s,port);
-  if(s.mode==="fiber") return drawFiber(g,w,h,s,port);
   if(s.mode==="gpu") return drawGpu(g,w,h,s,port);
   const N=(s.text||"").length;
   if(!N) return;
@@ -1042,93 +1047,6 @@ const stageTex=canvasTex(1400,700,g=>{
 });
 const stagePlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:stageTex.tex,transparent:true,opacity:0,depthTest:false,depthWrite:false,fog:false}));
 stagePlane.position.z=-.99;stagePlane.renderOrder=901;stagePlane.visible=false;camera.add(stagePlane);
-/* stage: the address book */
-function drawDns(g,w,h,s,port){
-  const found=s.phase==="found",pad=w*.03,name="chatgpt.com",addr=found?DNS_ROWS[3][1]:"?",fs=port?70:64;
-  g.textBaseline="middle";g.textAlign="center";g.font=`800 ${fs}px ${MONO}`;
-  let top;
-  if(port){
-    rr(g,pad,pad,w-pad*2,fs*3.5,36,"rgba(8,16,36,.95)",found?"#f4b63a":"#5fe0ff");
-    g.fillStyle="#fff";g.fillText(name,w/2,pad+fs*.8);
-    g.fillStyle="#5fe0ff";g.fillText("↓",w/2,pad+fs*1.75);
-    g.fillStyle="#ffd166";g.fillText(addr,w/2,pad+fs*2.7);
-    top=pad+fs*3.5+22;
-  }else{
-    rr(g,w*.06,pad,w*.88,fs*1.9,40,"rgba(8,16,36,.95)",found?"#f4b63a":"#5fe0ff");
-    const parts=[[name,"#fff"],["  →  ","#5fe0ff"],[addr,"#ffd166"]];
-    let x=(w-parts.reduce((a,q)=>a+g.measureText(q[0]).width,0))/2;g.textAlign="left";
-    parts.forEach(q=>{g.fillStyle=q[1];g.fillText(q[0],x,pad+fs*.98);x+=g.measureText(q[0]).width;});
-    top=pad+fs*1.9+24;
-  }
-  const bw=port?w-pad*2:w*.74,b0=(w-bw)/2,n=DNS_ROWS.length,th=56,rh=Math.min((h-pad-top-th-14)/n,port?70:66),rf=Math.floor(rh*.52);
-  rr(g,b0,top,bw,th+n*rh+14,28,"rgba(6,18,42,.95)","rgba(95,224,255,.45)");
-  g.textAlign="center";g.fillStyle="#5fe0ff";g.font=`800 ${Math.floor(th*.52)}px ${FONT}`;g.fillText(ui.labels.dnsTitle,w/2,top+th*.56);
-  g.textAlign="left";
-  DNS_ROWS.forEach((r,i)=>{
-    const y=top+th+(i+.5)*rh,hot=s.row===i;
-    if(hot) rr(g,b0+12,y-rh/2+4,bw-24,rh-8,14,found?"rgba(244,182,58,.28)":"rgba(95,224,255,.25)",found?"#f4b63a":"#5fe0ff");
-    g.font=`700 ${rf}px ${MONO}`;g.fillStyle=hot?(found?"#ffe7a8":"#fff"):"#6f8fbd";
-    g.fillText(r[0],b0+bw*.07,y);g.fillText("→",b0+bw*.5,y);g.fillText(r[1],b0+bw*.58,y);
-  });
-}
-/* stage: no machine knows the whole route; each one passes the message a little closer */
-const RN=[[.07,.52],[.22,.34],[.37,.6],[.53,.38],[.69,.62],[.84,.4],[.94,.52],[.2,.8],[.35,.14],[.52,.84],[.66,.14],[.8,.84],[.45,.5]];
-const RE=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[0,7],[7,2],[1,8],[8,3],[2,9],[9,4],[3,10],[10,5],[4,11],[11,6],[12,2],[12,3],[7,9],[8,10],[9,11],[1,12]];
-function drawRelay(g,w,h,s,port){
-  const X=i=>w*(.04+RN[i][0]*.92),Y=i=>h*(.12+RN[i][1]*.76),hops=6,f=clamp01(s.k)*hops,cur=Math.min(hops,Math.floor(f)),fr=f-cur;
-  g.lineCap="round";g.lineJoin="round";g.textBaseline="middle";
-  g.strokeStyle="rgba(95,200,255,.32)";g.lineWidth=4;
-  RE.forEach(([a,b])=>{g.beginPath();g.moveTo(X(a),Y(a));g.lineTo(X(b),Y(b));g.stroke();});
-  const ex=cur<hops?X(cur)+(X(cur+1)-X(cur))*ease(fr):X(hops),ey=cur<hops?Y(cur)+(Y(cur+1)-Y(cur))*ease(fr):Y(hops);
-  g.strokeStyle="#ffc23a";g.lineWidth=9;g.shadowColor="rgba(255,190,60,.9)";g.shadowBlur=22;
-  g.beginPath();g.moveTo(X(0),Y(0));for(let i=1;i<=cur;i++) g.lineTo(X(i),Y(i));g.lineTo(ex,ey);g.stroke();g.shadowBlur=0;
-  RN.forEach((n,i)=>{
-    const on=i<=cur&&i<=hops,end=i===0||i===hops,bw=end?92:70,bh=end?108:86,x=X(i),y=Y(i);
-    rr(g,x-bw/2,y-bh/2,bw,bh,14,on?"rgba(60,40,6,.97)":"rgba(8,18,44,.97)",on?"#ffc23a":"rgba(120,200,255,.75)");
-    g.fillStyle=on?"#ffd166":"rgba(120,200,255,.6)";
-    for(let r=0;r<3;r++) g.fillRect(x-bw/2+14,y-bh/2+16+r*(bh-32)/3,bw-28,6);
-  });
-  g.font=`800 ${port?34:32}px ${FONT}`;g.fillStyle="#fff";
-  g.textAlign="left";g.fillText(ui.labels.you,X(0)-46,Y(0)+84);
-  g.textAlign="right";g.fillText(ui.labels.dcs,X(hops)+46,Y(hops)+84);
-  const ew=64,eh=44;
-  g.shadowColor="rgba(255,200,80,.95)";g.shadowBlur=26;rr(g,ex-ew/2,ey-eh/2,ew,eh,8,"#fff3cf","#ffc23a");g.shadowBlur=0;
-  g.strokeStyle="#c98a12";g.lineWidth=4;g.beginPath();g.moveTo(ex-ew/2+5,ey-eh/2+6);g.lineTo(ex,ey+4);g.lineTo(ex+ew/2-5,ey-eh/2+6);g.stroke();
-  const tw=306,th=62,tx=Math.min(w-tw-8,Math.max(8,ex-tw/2)),ty=ey-eh/2-th-18;
-  rr(g,tx,ty,tw,th,10,"#ffd23f");
-  g.fillStyle="#3a2a00";g.font=`800 26px ${FONT}`;g.textAlign="left";g.fillText(ui.labels.to,tx+14,ty+th/2+1);
-  g.font=`800 30px ${MONO}`;g.textAlign="right";g.fillText(DNS_ROWS[3][1],tx+tw-12,ty+th/2+2);
-}
-/* stage: inside a cable, light running through threads of glass */
-const PK=["#f4a62a","#ff6f91","#4ade80","#b685ff"];
-function drawFiber(g,w,h,s,port){
-  const t=amb,cy=h*(port?.34:.38),ch=h*(port?.4:.5),x0=w*.02,x1=w*.98,c0=w*(port?.1:.16),c1=w*(port?.9:.84),n=port?3:4;
-  g.textBaseline="middle";
-  rr(g,x0,cy-ch/2,x1-x0,ch,46,"#161d2b","#34435f");
-  g.strokeStyle="rgba(255,255,255,.07)";g.lineWidth=3;
-  for(let x=x0+30;x<x1-10;x+=38){if(x>c0-12&&x<c1+26) continue;g.beginPath();g.moveTo(x,cy-ch/2+10);g.lineTo(x-14,cy+ch/2-10);g.stroke();}
-  rr(g,c0,cy-ch/2+16,c1-c0,ch-32,30,"rgba(3,8,18,.97)","rgba(95,224,255,.4)");
-  g.save();g.beginPath();g.rect(c0+4,cy-ch/2+19,c1-c0-8,ch-38);g.clip();g.lineCap="round";
-  for(let k=0;k<n;k++){
-    const y=cy+(k-(n-1)/2)*(ch-70)/n;
-    g.strokeStyle="rgba(150,215,255,.16)";g.lineWidth=18;g.beginPath();g.moveTo(c0,y);g.lineTo(c1,y);g.stroke();
-    g.strokeStyle="rgba(210,240,255,.55)";g.lineWidth=3;g.beginPath();g.moveTo(c0,y);g.lineTo(c1,y);g.stroke();
-    for(let j=0;j<3;j++){
-      const u=(t*.3+k*.23+j/3)%1,x=c0-80+u*(c1-c0+160),gr=g.createRadialGradient(x,y,0,x,y,60);
-      gr.addColorStop(0,"#ffc94a");gr.addColorStop(1,"rgba(0,0,0,0)");
-      g.globalAlpha=.6;g.fillStyle=gr;g.fillRect(x-60,y-60,120,120);g.globalAlpha=1;
-      const lg=g.createLinearGradient(x-90,0,x,0);lg.addColorStop(0,"rgba(255,255,255,0)");lg.addColorStop(1,"#fff");
-      g.strokeStyle=lg;g.lineWidth=9;g.beginPath();g.moveTo(x-90,y);g.lineTo(x,y);g.stroke();
-    }
-  }
-  g.restore();
-  g.font=`700 ${port?36:34}px ${FONT}`;g.textAlign="left";g.lineCap="round";
-  [[ui.labels.hair,"#9a7653",15],[ui.labels.glass,"#bfe9ff",5]].forEach((it,i)=>{
-    const a=port?w*.08:w*(.07+.5*i),y=port?h*(.72+.13*i):h*.86,len=w*(port?.2:.1);
-    g.strokeStyle=it[1];g.lineWidth=it[2];g.beginPath();g.moveTo(a,y);g.lineTo(a+len,y);g.stroke();
-    g.fillStyle="#dbe6ff";g.fillText(it[0],a+len+24,y);
-  });
-}
 /* stage: one GPU chip. Many small sums at once, then the model's numbers, then the words going in */
 const NUMS=["0.12","-0.87","0.45","0.91","-0.33","0.08","-0.52","0.67","0.29","-0.71","0.56","-0.14"];
 function drawGpu(g,w,h,s,port){
@@ -1388,7 +1306,7 @@ function flash(cb){const f=$("fade");f.style.background="#e9e2ff";f.style.opacit
 function resetStop(i){
   if(i===0||i===HOME) thumbPress=tapFx=0;
   if(i===0){phoneState={mode:"draft",bits:null,cipher:null,words:[]};redrawPhone();}
-  if(i===1){towerCab.m.emissiveIntensity=.6;towerCab.l.intensity=0;}
+  if(i===1){towerCab.m.emissiveIntensity=.1;towerCab.l.intensity=0;}
   if(i===2) packets.forEach(p=>{p.visible=false;p.scale.setScalar(1);});
   if(i===3){
     secState="idle";secTex.redraw();laser.visible=false;greenMats.forEach(m=>m.emissiveIntensity=.4);archStrips.emissive.set(0x35d6ff);
@@ -1422,23 +1340,22 @@ const actions=[
     travel({env:[[20,14,-3],[38,26,-7],[40.5,27.6,-6.5]],cam:[[14.4,11.3,-.9],[32.4,23.3,-4.9],[36.2,29,-3.2]],look:[44,26.5,-8],dur:3.4});
     at(3.4,()=>{showHero(1,.7);tween(0,.5,p=>{waveOn=1-p;});[0,.4].forEach(d=>at(d,()=>emitWave(hero.position,2.2,1)));});
     travel({delay:5.8,env:[[42.6,14,-7.4],[44.3,1.7,-4.3]],cam:[[40,16,-2],[40.6,3.6,-.4]],look:[45.4,1,-5.4],dur:1.5});
-    tween(7.4,.9,p=>{const e=Math.sin(Math.PI*Math.min(1,p*1.15));towerCab.m.emissiveIntensity=.6+4.5*e+1.2*p;towerCab.l.intensity=40*e+8*p;});
+    tween(7.4,.9,p=>{const e=Math.sin(Math.PI*Math.min(1,p*1.15));towerCab.m.emissiveIntensity=.1+1.1*e+.25*p;towerCab.l.intensity=5*e;});
     travel({delay:7.7,env:[[44.8,.9,-5.5],[47.8,.5,-5.45]],dur:.9,follow:false});
     return 9;
   },
-  ()=>{ /* the internet: find the address, hop from machine to machine, ride the light, cross the sea floor */
+  ()=>{ /* the internet: ride inside the glass thread as the message itself, then cross the sea floor */
     const tmp=V(0,0,0);
-    stage={mode:"dns",phase:"ask",row:-1};stageScale=1;stageTex.redraw();
-    stageGoal=1;
-    [0,1,2,3].forEach((r,k)=>at(.8+k*.4,()=>{stage.row=r;stage.phase="scan";stageTex.redraw();}));
-    at(2.5,()=>{stage.phase="found";stageTex.redraw();});
-    at(3.1,()=>{stage={mode:"relay",live:true,k:0};stageTex.redraw();});
-    tween(3.3,3.8,p=>{stage.k=p;});
-    at(7.4,()=>{stage={mode:"fiber",live:true};stageTex.redraw();});
-    at(11,()=>{
-      stageGoal=0;
+    fade(()=>{
+      hideGlobe();heroVis=0;hero.position.set(TUNNEL_AT.x+40,0,0);
+      camBase.copy(TUNNEL_AT);lookGoal.set(TUNNEL_AT.x+6,0,0);lookCur.copy(lookGoal);
+      tunnelFov=0;tunnelSpeed=.25;
+      /* it starts slow, then the view stretches and the walls streak past */
+      tween(.15,1.5,p=>{tunnelFov=p;tunnelSpeed=.25+1.05*p;},ease);
+    });
+    at(6,()=>{
       fade(()=>{
-        hideGlobe();placeAt(2);
+        hideGlobe();placeAt(2);heroDark=0;
         const home=hero.position.clone();
         const cc=new THREE.CatmullRomCurve3([camBase.clone(),...[[124,3.2,2.6],[140,-3.4,2.6],[165,-10.3,3],[190,-11.6,3.4],[215,-10.3,3],[240,-3.4,2.6],[252,2.6,3],[257,4.2,3.6]].map(v3)],false,"catmullrom",.35);
         /* the speed shows next to the light for a moment, then goes away */
@@ -1446,9 +1363,9 @@ const actions=[
         tween(.1,7.6,p=>{cc.getPointAt(p,camBase);seaCurves[1].getPointAt(clamp01(p*.96+.03),tmp);tmp.y+=.4;hero.position.lerpVectors(home,tmp,smooth(0,.07,p));lookGoal.copy(hero.position);lookCur.lerp(lookGoal,.5);},t=>1-Math.pow(1-t,1.6));
       });
     });
-    at(16.6,()=>fade(()=>showGlobe("web")));
-    at(19.4,()=>{hero.position.set(263,3,0);camBase.set(258.2,4.3,3.2);lookGoal.set(263,3,0);lookCur.copy(lookGoal);});
-    return 20;
+    at(11.6,()=>fade(()=>showGlobe("web")));
+    at(14.4,()=>{hero.position.set(263,3,0);camBase.set(258.2,4.3,3.2);lookGoal.set(263,3,0);lookCur.copy(lookGoal);});
+    return 15;
   },
   ()=>{ /* data center: the door checks and unlocks, then through the hall to the chips */
     secState="checking";secTex.redraw();
@@ -1608,7 +1525,7 @@ function renderHUD(){
   if(introOn){
     const html=`<h2>${ui.introTitle}</h2>${itemHTML(ui.introSay)}`;
     if(html!==capKey){capKey=html;capTitle=ui.introTitle;$("caption").innerHTML=html;}
-    $("chapter").innerHTML=`<b class="scr">1 / 22</b><span>${ui.introName}</span>`;
+    $("chapter").innerHTML=`<b class="scr">1 / 21</b><span>${ui.introName}</span>`;
     const mb=$("mainBtn");mb.textContent=ui.start;mb.disabled=busy;mb.classList.toggle("act",!busy);
     $("backBtn").disabled=true;
     document.querySelectorAll(".dot").forEach(d=>{d.classList.remove("active","visited");});
@@ -1646,8 +1563,8 @@ function renderHUD(){
     capT0=amb;capDur=need+.5;readUntil=amb+need;
   }
   /* screen number: 1 is the opening screen, 2 the phone, and every tap of the main button adds one */
-  const SCR0=[0,3,5,9,12,18],scr=SCR0[current]+2+(isModel?sub+(sub===4&&!(stepping&&gates.length)?1:0):beat+1+(current===HOME&&(replayed||realSpeed)?1:0));
-  $("chapter").innerHTML=`<b class="scr">${scr} / 22</b><span>${ui.kicker(current+1,n,stop.name)}</span>`;
+  const SCR0=[0,3,5,8,11,17],scr=SCR0[current]+2+(isModel?sub+(sub===4&&!(stepping&&gates.length)?1:0):beat+1+(current===HOME&&(replayed||realSpeed)?1:0));
+  $("chapter").innerHTML=`<b class="scr">${scr} / 21</b><span>${ui.kicker(current+1,n,stop.name)}</span>`;
   const mb=$("mainBtn");mb.textContent=labelTxt;mb.disabled=busy&&!waiting&&!open;mb.classList.toggle("act",act&&!mb.disabled);
   if(!mb.disabled&&!wasEn) enT0=amb;
   wasEn=!mb.disabled;
@@ -1662,6 +1579,7 @@ function applyLanguage(){
   document.querySelectorAll("[data-lang]").forEach(b=>b.classList.toggle("active",b.dataset.lang===lang));
   $("dots").innerHTML=ui.stops.map((s,i)=>`<button class="dot" type="button" data-stop="${i}" title="${i+1}. ${s.name}" aria-label="${ui.kicker(i+1,ui.stops.length,s.name)}"></button>`).join("");
   paintSpeed();
+  $("lgHair").textContent=ui.labels.hair;$("lgGlass").textContent=ui.labels.glass;
   labels.forEach(l=>l.sp.userData.set(ui.labels[l.key]));
   redrawPhone();dnsTex.redraw();secTex.redraw();signTex.redraw();
   rebuildWords();
@@ -1716,6 +1634,7 @@ function frame(){
 function step(dt,draw){
   amb+=dt;tickNature(amb);
   if(introOn){introFx.tick(amb);introCam(false);}
+  tunnelFx.tick(amb,dt,tunnelSpeed);
   if(typeof seaTick==="function"){seaTick(amb);modelTick(amb);}
   if(!waiting){
     let nc=clock+dt*(realSpeed?1:Math.min(1,rate*boost));
@@ -1748,8 +1667,9 @@ function step(dt,draw){
   heroDark+=((hz==="out"||hz==="room"?0:1)-heroDark)*(1-Math.exp(-dt*4));
   /* in dark places the paper is only lit enough to be seen; it shines like a light only inside the cables */
   const shine=heroDark*lightOn;
-  heroPaper.emissiveIntensity=.08+.4*heroDark+.5*shine;heroFlap.emissiveIntensity=.9+.15*heroDark+1.15*shine;heroGlow.material.opacity=.04*heroDark+.46*shine;
-  heroIn.scale.setScalar(1-.3*lightOn);flare.material.opacity=lightOn*(.12+.78*heroDark);core.material.opacity=lightOn*(.08+.32*heroDark);
+  heroPaper.color.lerpColors(PAPER_DAY,PAPER_DARK,heroDark);
+  heroPaper.emissiveIntensity=.48*heroDark+.5*shine;heroFlap.emissiveIntensity=.42+.63*heroDark+1.15*shine;heroGlow.material.opacity=.04*heroDark+.46*shine;
+  heroIn.scale.setScalar(1-.3*shine);flare.material.opacity=shine*.9;core.material.opacity=shine*.4;
   heroLight.intensity=.3*heroS*heroS*heroVis*(1+1.3*lightOn)*(.05+.3*heroDark+.65*shine);heroLight.distance=7*heroS;
   for(let k=TRAIL-1;k>0;k--){trailPos[k*3]=trailPos[k*3-3];trailPos[k*3+1]=trailPos[k*3-2];trailPos[k*3+2]=trailPos[k*3-1];}
   hero.position.toArray(trailPos,0);trailGeo.attributes.position.needsUpdate=true;
@@ -1758,7 +1678,7 @@ function step(dt,draw){
   /* camera */
   lookEff.copy(lookGoal);
   /* on a tall phone screen, step back from the phone in your hand and frame it higher, clear of the buttons */
-  const roomPort=camera.aspect<1&&camBase.x<1.4&&camBase.y<1.2;
+  const roomPort=camera.aspect<1&&camBase.x<1.4&&camBase.x>-100&&camBase.y<1.2;
   if(camera.aspect<1&&heroVis>.5&&current!==MODEL&&!roomPort) lookEff.lerp(hero.position,.45);
   if(roomPort) lookEff.y-=.045;
   lookCur.lerp(lookEff,1-Math.exp(-dt*10));
@@ -1814,6 +1734,15 @@ function step(dt,draw){
   if(ocean){ocean.material.uniforms.time.value=amb*.5;ocean.visible=camera.position.y>-.15;underSea.visible=!ocean.visible;}
   scene.fog.color.copy(zoneCur.fog);bgColor.copy(zoneCur.fog);scene.fog.density=zoneCur.den;
   scene.background=zn==="intro"?introBg:bgColor;
+  /* inside the cable: the ride is only there while the camera is, with a much wider view for the feeling of speed */
+  const inTube=zn==="tunnel";
+  if(inTube!==tunnelFx.root.visible){tunnelFx.show(inTube);$("sizeLegend").classList.toggle("on",inTube);}
+  if(!inTube) tunnelFov=0;
+  const fovNow=(camera.aspect<1?60:45)+(camera.aspect<1?38:52)*tunnelFov;
+  if(Math.abs(camera.fov-fovNow)>.01){camera.fov=fovNow;camera.updateProjectionMatrix();}
+  /* cable lights are strong in the dark and quiet in daylight, where a bright glow looks painted on */
+  dayK+=((zn==="out"||zn==="room"?1:0)-dayK)*k;
+  cableMat.emissiveIntensity=1.5-1.15*dayK;pulses.material.emissiveIntensity=3.6-2.5*dayK;
   sun.intensity=zoneCur.sun;hemi.intensity=zoneCur.hemi;fill.intensity=zoneCur.fill;renderer.toneMappingExposure=zoneCur.exp;
   skyGroup.visible=zn==="out"||zn==="room";skyGroup.position.copy(camera.position);
   setShadowExt(zn==="room"?6:45);
@@ -1822,7 +1751,7 @@ function step(dt,draw){
   seaLabel.visible=zn==="sea";fill.position.y+=zn==="model"?5:2.6;fill.position.z+=zn==="model"?7:0;
 
   /* ambient life */
-  curves.forEach((c,ci)=>{for(let j=0;j<7;j++){c.getPointAt((amb*(.05+ci*.004)+j/7+ci*.13)%1,tmpV);dummy.position.copy(tmpV);dummy.scale.setScalar(1);dummy.rotation.set(0,0,0);dummy.updateMatrix();pulses.setMatrixAt(ci*7+j,dummy.matrix);}});
+  curves.forEach((c,ci)=>{for(let j=0;j<7;j++){c.getPointAt((amb*(.05+ci*.004)+j/7+ci*.13)%1,tmpV);dummy.position.copy(tmpV);dummy.scale.setScalar(1-.45*dayK);dummy.rotation.set(0,0,0);dummy.updateMatrix();pulses.setMatrixAt(ci*7+j,dummy.matrix);}});
   pulses.instanceMatrix.needsUpdate=true;
   beacon.material.emissiveIntensity=Math.sin(amb*4)>0?4.5:.5;
   blinkers.forEach(b=>{b.material.emissiveIntensity=Math.sin(amb*6+b.userData.blink*1.7)>0?3:.4;});
