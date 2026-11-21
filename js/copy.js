@@ -9,8 +9,9 @@ export const appCopy={
     replay:"See the whole trip ▸",restart:"↺ Start over",
     replayDone:"That was real speed: about <b>one second</b>. No country and no company owns the internet. It is billions of machines that agree to pass a stranger's message along.",
     promptLines:["The capital of","France is..."],prompt:"The capital of France is",
+    keyboard:{locale:"EN",middle:"asdfghjkl",underline:"France",suggestions:["“is”","isn’t","issued"]},
     answer:["Paris,","the","City","of","Light."],
-    labels:{phoneTitle:"ChatGPT",greet:"Good evening",greet2:"What can I help you with?",model:"6.2 Astra",effort:"High",ask:"Ask anything",message:"Message",wifi:"Wi-Fi router",tower:"Cell tower",router:"router",fiber:"glass fiber cable",sea:"Ocean floor|13,000 feet deep",speed:"450 million mph",you:"You",far:"The AI's data center",dcs:"Data center",to:"To",
+    labels:{model:"6.2 Astra",effort:"High",ask:"Ask anything",message:"Message",wifi:"Wi-Fi router",tower:"Cell tower",router:"router",fiber:"glass fiber cable",sea:"Ocean floor|13,000 feet deep",speed:"450 million mph",you:"You",far:"The AI's data center",dcs:"Data center",to:"To",
       dc:"DATA CENTER",dnsTitle:"The internet's address book",guard:"Security check",checking:"Checking…",ok:"✓ It's you",director:"Traffic director",busy:"busy",free:"free",gpu:"GPU",hair:"a human hair, for size",glass:"one glass thread"},
     stops:[
       {name:"Your phone",title:"It starts with Send",say:"Tap the blue <b>Send</b> button.",action:"Send ↑",
@@ -67,8 +68,9 @@ export const appCopy={
     replay:"Ver todo el viaje ▸",restart:"↺ Empezar de nuevo",
     replayDone:"Esa fue la velocidad real: cerca de <b>un segundo</b>. Ningún país ni empresa es dueño de internet. Son miles de millones de máquinas que acuerdan pasar el mensaje de un desconocido.",
     promptLines:["La capital de","Francia es..."],prompt:"La capital de Francia es",
+    keyboard:{locale:"ES",middle:"asdfghjklñ",underline:"Francia",suggestions:["“es”","está","eso"]},
     answer:["París,","la","Ciudad","de","la","Luz."],
-    labels:{phoneTitle:"ChatGPT",greet:"Buenas noches",greet2:"¿En qué puedo ayudarte?",model:"6.2 Astra",effort:"Alto",ask:"Pregunta lo que quieras",message:"Mensaje",wifi:"Router Wi-Fi",tower:"Antena celular",router:"router",fiber:"cable de fibra de vidrio",sea:"Fondo del océano|13,000 pies de profundidad",speed:"450 millones de mph",you:"Tú",far:"Centro de datos de la IA",dcs:"Centro de datos",to:"Para",
+    labels:{model:"6.2 Astra",effort:"Alto",ask:"Pregunta lo que quieras",message:"Mensaje",wifi:"Router Wi-Fi",tower:"Antena celular",router:"router",fiber:"cable de fibra de vidrio",sea:"Fondo del océano|13,000 pies de profundidad",speed:"450 millones de mph",you:"Tú",far:"Centro de datos de la IA",dcs:"Centro de datos",to:"Para",
       dc:"CENTRO DE DATOS",dnsTitle:"El directorio de internet",guard:"Control de seguridad",checking:"Revisando…",ok:"✓ Eres tú",director:"Director de tráfico",busy:"ocupado",free:"libre",gpu:"GPU",hair:"un cabello, para comparar",glass:"un hilo de vidrio"},
     stops:[
       {name:"Tu teléfono",title:"Todo empieza con Enviar",say:"Toca el botón azul de <b>Enviar</b>.",action:"Enviar ↑",
