@@ -8,6 +8,7 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {Water} from 'three/addons/objects/Water.js';
 import {appCopy} from './copy.js';
+import {createNarration} from './narration.js';
 import {createHand,HP} from './hand.js';
 import {createPhotoGrip} from './phone-grip.js';
 import {paintPhone,phoneLayout} from './phone-screen.js';
@@ -41,6 +42,7 @@ const READY=[[2,10.9],[8.6],[2,12.4],[3.8,13.3],null,[1.2]];
 const ITEMS=[[[3,5.3],[8.7,10.9]],[[3.5,5.8]],[[3.5],[9.2,11.8]],[[3],[9.6,11.8]],null,[[1.6]]];
 const beatTimes=i=>BEATS[i];
 const $=id=>document.getElementById(id);
+const narration=createNarration($("voiceStatus"));
 const V=(x,y,z)=>new THREE.Vector3(x,y,z);
 const v3=a=>new THREE.Vector3(a[0],a[1],a[2]);
 const clamp01=x=>Math.min(1,Math.max(0,x));
@@ -1338,7 +1340,7 @@ function runAction(){
   at(dur,()=>{done=true;busy=false;stepping=false;setTimer(tm[tm.length-1]);renderHUD();});
 }
 function mainAction(){
-  if(introOn){if(!busy) go(0,true);return;}
+  if(introOn){if(!busy) narration.startIntro(()=>go(0,true));return;}
   if(waiting){release();return;}
   if(busy){if(clock>=openAt) skipAhead();return;}
   if(current===MODEL){sub<4?setSub(sub+1):go(HOME);return;}
@@ -1410,7 +1412,8 @@ function renderHUD(){
   if(introOn){
     const html=`<h2>${ui.introTitle}</h2>${itemHTML(ui.introSay)}`;
     if(html!==capKey){capKey=html;capTitle=ui.introTitle;$("caption").innerHTML=html;}
-    $("chapter").innerHTML=`<b class="scr">1 / 21</b><span>${ui.introName}</span>`;
+    narration.setScreen(lang,1);
+    $("chapter").innerHTML=`<b class="scr">1 / ${narration.total}</b><span>${ui.introName}</span>`;
     const mb=$("mainBtn");mb.textContent=ui.start;mb.disabled=busy;mb.classList.toggle("act",!busy);
     $("backBtn").disabled=true;
     document.querySelectorAll(".dot").forEach(d=>{d.classList.remove("active","visited");});
@@ -1449,7 +1452,8 @@ function renderHUD(){
   }
   /* screen number: 1 is the opening screen, 2 the phone, and every tap of the main button adds one */
   const SCR0=[0,3,5,8,11,17],scr=SCR0[current]+2+(isModel?sub+(sub===4&&!(stepping&&gates.length)?1:0):beat+1+(current===HOME&&(replayed||realSpeed)?1:0));
-  $("chapter").innerHTML=`<b class="scr">${scr} / 21</b><span>${ui.kicker(current+1,n,stop.name)}</span>`;
+  narration.setScreen(lang,scr);
+  $("chapter").innerHTML=`<b class="scr">${scr} / ${narration.total}</b><span>${ui.kicker(current+1,n,stop.name)}</span>`;
   const mb=$("mainBtn");mb.textContent=labelTxt;mb.disabled=busy&&!waiting&&!open;mb.classList.toggle("act",act&&!mb.disabled);
   if(!mb.disabled&&!wasEn) enT0=amb;
   wasEn=!mb.disabled;
@@ -1531,7 +1535,7 @@ function step(dt,draw){
     const mb=$("mainBtn");let pr=0;
     if(auto&&!mb.disabled){
       if(current===HOME&&done&&replayed){auto=false;renderHUD();}
-      else{pr=Math.min(1,(amb-capT0)/capDur,(amb-enT0)/1.5);if(pr>=1){pr=0;mainAction();}}
+      else{pr=Math.min(1,(amb-capT0)/capDur,(amb-enT0)/1.5);if(pr>=1 && !narration.waitingForEnd){pr=0;mainAction();}}
     }
     if(pr!==lastP){lastP=pr;mb.style.setProperty("--p",pr.toFixed(3));}
   }
