@@ -1,0 +1,223 @@
+/* An opaque circuit-board backdrop keeps the message, processor and result in one reading plane. */
+.chip-lesson-open::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at 50% 56%, transparent 25%, #07101b 85%),
+    radial-gradient(circle, #52717a55 .8px, transparent 1.1px) 50% 50% / 21px 21px,
+    radial-gradient(ellipse at 50% 52%, #203a40 0%, #152630 35%, #0a141f 75%);
+}
+#chipLesson {
+  position: fixed;
+  z-index: 2;
+  inset-inline: 0;
+  display: flex;
+  align-items: safe center;
+  justify-content: safe center;
+  overflow: auto;
+  padding: 12px max(18px, 4vw);
+  color: #f5f3eb;
+}
+#chipLesson[hidden] { display: none; }
+.chip-label {
+  display: block;
+  font-size: clamp(.76rem, 1.25vw, .98rem);
+  letter-spacing: .055em;
+  font-weight: 650;
+  color: #c1d4da;
+}
+.chip-flow {
+  --chip-size: clamp(138px, min(18vw, 30vh), 238px);
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(32px, .38fr) minmax(var(--chip-size), 1fr) minmax(32px, .38fr) minmax(0, 1fr);
+  gap: clamp(10px, 1.3vw, 22px);
+  align-items: center;
+}
+.chip-prompt, .chip-result, .chip-process { text-align: center; }
+.chip-prompt .chip-label { color: #a7d7f4; }
+.chip-result .chip-label { color: #edcf8d; }
+.chip-quote, .chip-prediction, .token-value {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  line-height: 1.07;
+  letter-spacing: -.044em;
+}
+.chip-quote { margin: 12px 0 0; font-size: clamp(24px, 3.2vw, 52px); }
+.chip-quote span { display: block; }
+.chip-prediction {
+  display: inline-block;
+  margin-top: 7px;
+  color: #ffe3a3;
+  font-size: clamp(48px, 6.5vw, 91px);
+}
+.chip-arrow {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, #669caa77, #96c4cb);
+  color: #96c4cb;
+}
+.chip-arrow::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: solid currentColor;
+  border-width: 2px 2px 0 0;
+  transform: rotate(45deg);
+  top: -3.5px;
+  right: 1px;
+}
+.chip-process { display: grid; justify-items: center; gap: 17px; }
+.chip-package {
+  width: var(--chip-size);
+  aspect-ratio: 1.13;
+  position: relative;
+  isolation: isolate;
+  border: 1px solid #869a88;
+  border-radius: 10%;
+  background: linear-gradient(140deg, #607570, #243d3f 38%, #172e31 76%, #5b726c);
+  box-shadow: inset 0 0 0 3px #213c3e, inset 0 0 0 4px #9baf9669, 0 5px 0 #0a171b, 0 12px 22px #020a0d99;
+}
+.chip-package::before, .chip-package::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+.chip-package::before {
+  inset: 11% -4%;
+  background: repeating-linear-gradient(0deg, #9b804b 0 2px, #e9cc87 2px 4px, transparent 4px 10px) left / 4% 100% no-repeat,
+              repeating-linear-gradient(0deg, #9b804b 0 2px, #e9cc87 2px 4px, transparent 4px 10px) right / 4% 100% no-repeat;
+}
+.chip-package::after {
+  inset: -4% 11%;
+  background: repeating-linear-gradient(90deg, #9b804b 0 2px, #e9cc87 2px 4px, transparent 4px 10px) top / 100% 4% no-repeat,
+              repeating-linear-gradient(90deg, #9b804b 0 2px, #e9cc87 2px 4px, transparent 4px 10px) bottom / 100% 4% no-repeat;
+}
+.chip-face {
+  position: absolute;
+  inset: 9%;
+  border: 1px solid #99acac;
+  border-radius: 9%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8%;
+  background: linear-gradient(145deg, #586a6d, #233237 43%, #263438 75%, #415358);
+  box-shadow: inset 0 0 0 2px #293438, 0 2px 6px #03090ccc;
+}
+.chip-engraving { color: #f9efce; font: 650 clamp(16px, 2vw, 28px)/1 ui-monospace, Menlo, monospace; letter-spacing: .09em; }
+.chip-die {
+  width: 70%;
+  height: 45%;
+  padding: 3%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 6%;
+  background: #1b2826;
+  border: 1px solid #899478;
+  box-shadow: inset 0 1px 4px #0b1413;
+}
+.chip-core {
+  background: repeating-linear-gradient(90deg, transparent 0 3px, #513b384d 3px 4px),
+    repeating-linear-gradient(0deg, transparent 0 3px, #704d3944 3px 4px),
+    linear-gradient(140deg, #fff1b0, #c28d48 80%);
+  box-shadow: inset 0 0 0 1px #efd39f77;
+}
+.chip-process-caption { color: #e0e7e5; font-size: clamp(.84rem, 1.32vw, 1.05rem); line-height: 1.25; }
+.chip-sr { position: absolute; width: 1px; height: 1px; padding: 0; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
+
+.token-diagram { width: min(820px, 100%); text-align: center; }
+.token-pieces { display: flex; flex-wrap: wrap; gap: clamp(6px, 1vw, 12px); justify-content: center; margin: 14px 0 clamp(28px, 6vh, 70px); }
+.token-key {
+  appearance: none;
+  border: 1px solid #69838c;
+  border-radius: 10px;
+  color: #edeeee;
+  background: linear-gradient(155deg, #30454e, #1b3038);
+  box-shadow: 0 3px 0 #08161d;
+  padding: .45em .64em;
+  min-height: 44px;
+  font-size: clamp(1.1rem, 2.4vw, 2.1rem);
+  line-height: 1.1;
+  cursor: pointer;
+}
+.token-key[aria-pressed="true"] {
+  color: #292519;
+  border-color: #ffe8aa;
+  background: #efd089;
+  box-shadow: 0 3px 0 #806b43;
+}
+.token-key:hover { border-color: #fff0cb; }
+.token-ticket {
+  margin: auto;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 34px minmax(0,1fr);
+  align-items: center;
+  gap: 12px;
+  max-width: 490px;
+  padding: clamp(17px, 3vh, 29px) 12px;
+  border-block: 1px solid #7eaaad70;
+}
+.token-field { display: grid; gap: 9px; justify-items: center; min-width: 0; }
+.token-value, .token-number { color: #ffe3a3; font-size: clamp(29px, 4.4vw, 56px); }
+.token-number { font-family: ui-monospace, Menlo, monospace; font-weight: 500; line-height: 1.07; letter-spacing: -.045em; }
+@media (prefers-reduced-motion: no-preference) {
+  .chip-flow > .chip-arrow { animation: chip-signal .5s .08s ease-out both; }
+  .chip-flow > .chip-arrow:nth-last-child(2) { animation-delay: .93s; }
+  @keyframes chip-signal { from { opacity: .35; } to { opacity: 1; } }
+  .chip-core { animation: chip-work .42s .48s ease-in-out 2 alternate; }
+  @keyframes chip-work { from { filter: brightness(.73); } to { filter: brightness(1.32); } }
+  .chip-prediction { animation: chip-answer .42s 1.15s ease backwards; }
+  @keyframes chip-answer { from { opacity: .6; transform: translateY(4px); } }
+}
+@media (max-width: 650px) and (min-height: 520px) {
+  .chip-flow { --chip-size: clamp(82px, 15vh, 139px); display: flex; flex-direction: column; gap: clamp(6px, 1.3vh, 13px); }
+  .chip-flow > .chip-arrow { width: 2px; height: clamp(12px, 2.7vh, 26px); background: #96c4cb; }
+  .chip-flow > .chip-arrow::after { top: auto; right: -3.5px; bottom: 0; transform: rotate(135deg); }
+  .chip-quote { margin-top: 6px; font-size: clamp(22px, 6.8vw, 32px); }
+  .chip-quote span { display: inline; }
+  .chip-prediction { margin: 1px 0 0; font-size: clamp(35px, 6.2vh, 62px); }
+  .chip-process { gap: 9px; }
+  .token-key { font-size: clamp(16px, 4.7vw, 22px); }
+}
+@media (max-height: 520px) {
+  #chipLesson { padding-block: 5px; }
+  .chip-flow { --chip-size: min(18vw, 21vh); gap: 6px; }
+  .chip-process { gap: 5px; }
+  .chip-quote { font-size: clamp(18px, 3vw, 30px); margin-top: 5px; }
+  .chip-prediction { font-size: clamp(27px, 5vw, 48px); margin-top: 0; }
+  .token-pieces { margin: 5px 0 12px; }
+  .token-ticket { padding-block: 5px; }
+}
+@media (max-width: 650px) and (max-height: 700px) and (orientation: portrait) {
+  .chip-lesson-open .caption { top: 37px; }
+  .chip-lesson-open .caption h2 { font-size: 1.45rem; margin: 5px 0; }
+  .chip-lesson-open .ln { font-size: 1rem; }
+  .chip-lesson-open .bottom { gap: 6px; padding-block: 6px calc(8px + env(safe-area-inset-bottom)); }
+  .chip-lesson-open .legend { padding-block: 7px 9px; gap: 5px; }
+  .chip-flow { --chip-size: clamp(66px, 13vh, 90px); gap: 5px; }
+  .chip-flow > .chip-arrow { height: 12px; }
+  .chip-quote { margin-top: 2px; font-size: 21px; }
+  .chip-process { gap: 4px; }
+  .chip-prediction { font-size: 34px; }
+  .token-pieces { margin: 8px 0 16px; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .chip-lesson-open .caption { top: 9px; width: calc(100% - 190px); }
+  .chip-lesson-open .caption h2 { font-size: clamp(20px, 3vw, 29px); margin: 4px 0; }
+  .chip-lesson-open .ln { font-size: .96rem; }
+  .chip-lesson-open .bottom { flex-direction: row; align-items: end; gap: 10px; padding: 6px 12px; }
+  .chip-lesson-open .legend { gap: 5px; padding: 7px 10px 9px; }
+  .chip-lesson-open .dots { width: min(190px, 34vw); }
+  .chip-lesson-open .main-btn, .chip-lesson-open .back-btn { min-height: 42px; height: 42px; }
+  .chip-lesson-open .back-btn { width: 44px; }
+}

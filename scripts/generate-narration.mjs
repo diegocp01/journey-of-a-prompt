@@ -1,8 +1,8 @@
 // Run from any directory with Node 22+ and OPENAI_API_KEY in the environment.
-import { mkdir, readFile, rename, stat, writeFile, rm } from "node:fs/promises";
+import { mkdir, rename, stat, writeFile, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-const screens = JSON.parse(await readFile(new URL("./narration.json", import.meta.url), "utf8"));
+import { narrationLines } from "../js/narration-lines.mjs";
 const delivery = {
   en: "Speak in clear, conversational English.",
   es: "Habla en español latinoamericano, con pronunciación clara y natural."
@@ -46,8 +46,8 @@ async function generate(language, script, file) {
 for (const language of Object.keys(delivery)) {
   const dir = new URL(`../assets/narration/${language}/`, import.meta.url);
   await mkdir(dir, { recursive: true });
-  for (const entry of screens) {
-    const id = String(entry.screen).padStart(2, "0");
+  for (const entry of narrationLines) {
+    const id = entry.id;
     const file = fileURLToPath(new URL(id + ".mp3", dir));
     const existing = await stat(file).catch(error => {
       if (error.code !== "ENOENT") throw error;

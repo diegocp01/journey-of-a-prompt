@@ -1,6 +1,7 @@
-/* Extra detail for four places: the room, the sea floor, the inside of the data center, and the inside of the AI.
+/* Extra detail for three places: the sea floor, the inside of the data center, and the inside of the AI.
    Each function takes the shared helpers from main.js (h) and returns a function to call every frame, or nothing. */
 import * as THREE from 'three';
+import {createOceanHabitat} from './seafloor.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 function rng(seed) {
@@ -18,37 +19,9 @@ function copies(parent, geo, mat, list, {cast = false} = {}) {
   return m;
 }
 
-/* ====================================================================== the room */
-export function roomDetail(h) {
-  const {scene, model, M, canvasTex, cyl} = h, DESK = .75;
-  /* put a model on the desk, scaled to a real-world size and standing on the desk top */
-  const put = (id, x, z, {size, wide = false, rot = 0, y = DESK} = {}) => model(id, m => {
-    const s = new THREE.Box3().setFromObject(m).getSize(V(0, 0, 0));
-    m.scale.setScalar(size / (wide ? Math.max(s.x, s.z) : s.y)); m.rotation.y = rot; m.updateMatrixWorld(true);
-    const b = new THREE.Box3().setFromObject(m);
-    m.position.set(x - (b.min.x + b.max.x) / 2, y - b.min.y, z - (b.min.z + b.max.z) / 2);
-    scene.add(m);
-  });
-  put('alarm_clock_01', 1.92, -.3, {size: .1, rot: -Math.PI / 2});
-  put('stationery_supplies', 1.9, .04, {size: .2, wide: true, rot: .5});
-  put('book_encyclopedia_set_01', 1.9, -.84, {size: .26, rot: -Math.PI / 2});
-  /* curtains at the two ends of the window, hanging from a rod */
-  const folds = canvasTex(128, 64, (g, w, hh) => {
-    for (let x = 0; x < w; x++) { const v = 205 + Math.round(34 * Math.sin(x / w * Math.PI * 14) + 10 * Math.sin(x / w * Math.PI * 37)); g.fillStyle = `rgb(${v},${v - 6},${v - 18})`; g.fillRect(x, 0, 1, hh); }
-  });
-  folds.redraw();
-  const cloth = new THREE.MeshStandardMaterial({map: folds.tex, bumpMap: folds.tex, bumpScale: 1.4, roughness: .95, side: THREE.DoubleSide, envMapIntensity: .15});
-  [-1.66, 1.66].forEach(z => {
-    const c = new THREE.Mesh(new THREE.PlaneGeometry(.66, 1.95, 1, 1), cloth);
-    c.rotation.y = -Math.PI / 2; c.position.set(1.955, 1.3, z); c.castShadow = true; scene.add(c);
-  });
-  const rod = cyl(.014, .014, 4.1, M(0x3b3028, {m: .7, r: .4, env: .6}), 1.955, 2.3, 0, 8);
-  rod.rotation.x = Math.PI / 2;
-}
-
 /* ====================================================================== the sea floor */
 export function seaDetail(h) {
-  const {scene, model, scatter, seaY, seaCurves, M} = h, R = rng(31);
+  const {scene, model, scatter, seaY, bedHeight, seaCurves, seaRepeaterStops, M, GLOW} = h, R = rng(31);
   const depth = x => -seaY(x);
   /* seagrass, but only in the shallow water near each shore: nothing green grows 13,000 feet down */
   const blade = new THREE.PlaneGeometry(.1, 1, 1, 6); blade.translate(0, .5, 0);
@@ -65,65 +38,32 @@ export function seaDetail(h) {
   while (grass.length < 700) {
     const x = R() < .5 ? 131 + R() * 13 : 236 + R() * 13, z = (R() - .5) * 22;
     if (depth(x) > 6.5 || Math.abs(z) < .5) continue;
-    grass.push({x, y: seaY(x) - .02, z, ry: R() * 6.28, sx: .8 + R() * .8, sy: .5 + R() * 1.5, sz: 1});
+    grass.push({x, y: bedHeight(x,z) - .02, z, ry: R() * 6.28, sx: .8 + R() * .8, sy: .5 + R() * 1.5, sz: 1});
   }
   copies(scene, blade, grassMat, grass);
-  /* the deep floor: glass sponges and sea pens standing here and there, and brittle stars on the mud */
-  const stalks = [], stars = [];
-  while (stalks.length < 90) {
-    const x = 150 + R() * 80, z = (R() < .5 ? -1 : 1) * (1.2 + R() * 13);
-    stalks.push({x, y: seaY(x) - .02, z, sx: .6 + R() * .8, sy: .28 + R() * .5, sz: .6 + R() * .8, ry: R() * 6.28, rz: (R() - .5) * .2});
-  }
-  const stalk = new THREE.CylinderGeometry(.17, .09, 1, 9, 3, true); stalk.translate(0, .5, 0);
-  copies(scene, stalk, new THREE.MeshStandardMaterial({color: 0xcfd9ff, roughness: .6, side: THREE.DoubleSide, envMapIntensity: .1, emissive: 0x5f78d8, emissiveIntensity: .22, transparent: true, opacity: .7}), stalks);
-  const starShape = new THREE.Shape();
-  for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283, r = i % 2 ? .07 : .34; starShape[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); }
-  const starGeo = new THREE.ExtrudeGeometry(starShape, {depth: .035, bevelEnabled: false}); starGeo.rotateX(-Math.PI / 2);
-  while (stars.length < 70) { const x = 140 + R() * 100, z = (R() - .5) * 20; stars.push({x, y: seaY(x) + .03, z, ry: R() * 6.28, s: .5 + R() * .7}); }
-  copies(scene, starGeo, M(0xc9744f, {r: .8, env: .05}), stars);
   /* real scanned rocks and shells (Poly Haven) near the cables */
-  const near = (n, lo, hi, s0, s1) => Array.from({length: n}, () => { const x = lo + R() * (hi - lo), z = (R() < .5 ? -1 : 1) * (1 + R() * 11); return {x, z, y: seaY(x) - .05, rot: R() * 6.28, s: s0 + R() * (s1 - s0)}; });
-  /* these scans are heavy (about 12,000 triangles each), so only a few, close to the cable where the camera passes */
-  const close = (n, lo, hi, s0, s1) => near(n, lo, hi, s0, s1).map(p => ({...p, z: Math.sign(p.z) * (1.2 + Math.abs(p.z) * .45)}));
+  const close = (n, lo, hi, s0, s1) => Array.from({length:n}, () => {
+    const x=lo+R()*(hi-lo), z=(R()<.5?-1:1)*(1.65+R()*4.8);
+    return {x,z,y:bedHeight(x,z)-.06,rot:R()*6.28,s:s0+R()*(s1-s0)};
+  });
   model('rock_09', m => scatter(scene, m, close(14, 140, 242, .6, 1.7), {cast: false}));
   model('rock_07', m => scatter(scene, m, close(10, 140, 242, .5, 1.4), {cast: false}));
   model('lambis_shell', m => scatter(scene, m, [...close(4, 131, 146, 1.2, 2.2), ...close(4, 234, 249, 1.2, 2.2)].map(p => ({...p, y: p.y + .1})), {cast: false}));
   /* repeaters: the thick metal sleeves along a real sea cable that boost the light every 50 miles or so */
   const body = new THREE.CylinderGeometry(.3, .3, 1.7, 18), cone = new THREE.CylinderGeometry(.16, .3, .55, 18), band = new THREE.TorusGeometry(.31, .035, 8, 20);
-  const steel = M(0x39446e, {m: .8, r: .35, env: .9}), bands = M(0x8f9cc8, {m: .9, r: .3, env: 1});
+  const steel = M(0x4c595a, {m: .8, r: .35, env: .9}), bands = M(0x9aa8a6, {m: .9, r: .3, env: 1});
   const up = V(0, 1, 0), q = new THREE.Quaternion(), e = new THREE.Euler();
   const sleeves = [], ends = [], rings = [];
-  seaCurves.forEach((c, ci) => [.3, .5, .7].forEach((u, k) => {
+  seaCurves.forEach((c, ci) => seaRepeaterStops.forEach(u => {
     const p = c.getPointAt(u + ci * .03 - .03), t = c.getTangentAt(u + ci * .03 - .03);
     q.setFromUnitVectors(up, t); e.setFromQuaternion(q);
     const at = (d, list, flip) => { const o = p.clone().addScaledVector(t, d); if (flip) { const q2 = new THREE.Quaternion().setFromUnitVectors(up, t.clone().negate()), e2 = new THREE.Euler().setFromQuaternion(q2); list.push({x: o.x, y: o.y, z: o.z, rx: e2.x, ry: e2.y, rz: e2.z}); } else list.push({x: o.x, y: o.y, z: o.z, rx: e.x, ry: e.y, rz: e.z}); };
     at(0, sleeves); at(1.12, ends); at(-1.12, ends, true);
     [-.6, 0, .6].forEach(d => { const o = p.clone().addScaledVector(t, d), qr = q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), Math.PI / 2)), er = new THREE.Euler().setFromQuaternion(qr); rings.push({x: o.x, y: o.y, z: o.z, rx: er.x, ry: er.y, rz: er.z}); });
-    void k;
   }));
   copies(scene, body, steel, sleeves); copies(scene, cone, steel, ends); copies(scene, band, bands, rings);
-  /* fish: small schools in the shallows, a few slow loners in the deep */
-  /* a fish is a stretched ball for the body and a flat fin for the tail */
-  const fishGeo = new THREE.SphereGeometry(.16, 12, 8); fishGeo.scale(1.7, .6, .34);
-  const tail = new THREE.ConeGeometry(.13, .2, 3); tail.rotateZ(Math.PI / 2); tail.scale(1, 1, .12); tail.translate(-.34, 0, 0);
-  const fishMat = M(0x9fb6d8, {m: .6, r: .35, env: .6, e: 0x3a69b0, ei: .6});
-  const fish = [];
-  [[137, 0], [243, 1], [140, 2], [190, 3], [205, 4]].forEach(([cx, k]) => {
-    const deep = k > 2, n = deep ? 3 : 22;
-    for (let i = 0; i < n; i++) fish.push({cx: cx + (R() - .5) * 5, cz: (R() - .5) * 8, cy: seaY(cx) + (deep ? 2.5 + R() * 3 : 1 + R() * 2.2), r: deep ? 9 + R() * 6 : 2 + R() * 3.5, sp: (deep ? .07 : .35) * (R() < .5 ? 1 : -1) * (.7 + R() * .6), ph: R() * 6.28, s: deep ? 1.5 + R() * .6 : .7 + R() * .6});
-  });
-  const bodies = new THREE.InstancedMesh(fishGeo, fishMat, fish.length), tails = new THREE.InstancedMesh(tail, fishMat, fish.length), d = new THREE.Object3D();
-  [bodies, tails].forEach(m => { m.frustumCulled = false; scene.add(m); });
-  return t => {
-    sway.value = t;
-    fish.forEach((f, i) => {
-      const a = f.ph + t * f.sp;
-      d.position.set(f.cx + Math.cos(a) * f.r, f.cy + Math.sin(a * 2.3 + f.ph) * .3, f.cz + Math.sin(a) * f.r * .55);
-      d.rotation.set(0, -a - Math.sign(f.sp) * Math.PI / 2 + Math.sin(t * 6 + f.ph) * .12, 0); d.scale.setScalar(f.s); d.updateMatrix();
-      bodies.setMatrixAt(i, d.matrix); tails.setMatrixAt(i, d.matrix);
-    });
-    bodies.instanceMatrix.needsUpdate = tails.instanceMatrix.needsUpdate = true;
-  };
+  const habitatTick=createOceanHabitat(scene,R,copies,GLOW);
+  return (t,cameraX)=>{sway.value=t;habitatTick(t,cameraX);};
 }
 
 /* ====================================================================== inside the data center */

@@ -11,19 +11,15 @@ button{font:inherit;color:inherit}
 #loading{position:fixed;inset:0;display:grid;place-items:center;background:#05060c;font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:.8rem;color:#aab6d6;text-align:center;padding:20px;transition:opacity .6s ease}
 
 /* HUD in a liquid-glass style: clear capsules that blur what is behind them */
-.timer,.legend,.back-btn,.main-btn,.voice-controls{
+.timer,.legend,.back-btn,.main-btn{
   background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.07));
   border:1px solid rgba(255,255,255,.32);
   -webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.6),inset 0 -1px 0 rgba(255,255,255,.1),0 10px 30px rgba(0,0,0,.32)}
 .top{position:fixed;z-index:3;top:0;left:0;right:0;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:14px 18px;pointer-events:none}
 .top > *{pointer-events:auto}
-.voice-controls{position:relative;display:flex;align-items:center;margin-right:auto;border-radius:999px;background-color:rgba(8,20,40,.56)}
-.voice-controls button{border:0;background:none;cursor:pointer;min-height:42px;border-radius:999px}
-.voice-button{display:flex;align-items:center;gap:.5em;padding:0 14px;font-weight:600}
-.voice-label{font-size:.75em;font-weight:500;color:#e2ebfb}
-.voice-replay{min-width:42px;padding:0 10px;font-size:1.35rem}
-#voiceStatus:not(:empty){position:absolute;top:100%;left:4px;margin-top:4px;padding:4px 8px;border-radius:8px;background:#15243d;font-size:.8rem;white-space:nowrap}
+#voiceStatus:not(:empty){margin-right:auto;font-size:.85rem;font-weight:600;color:#fff;
+  padding:6px 10px;border-radius:8px;background:rgba(8,20,40,.72);pointer-events:none}
 .timer{display:flex;align-items:baseline;gap:5px;padding:7px 16px 8px;border-radius:999px;
   font-family:ui-rounded,"SF Pro Rounded",-apple-system,system-ui,sans-serif;font-size:1.3rem;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.01em;color:#fff;white-space:nowrap}
 .timer i{font-style:normal;font-size:.62em;font-weight:500;opacity:.65}
@@ -32,10 +28,22 @@ button{font:inherit;color:inherit}
 /* text top center, step tracker bottom left, buttons bottom right */
 body::before{content:"";position:fixed;left:0;right:0;top:0;height:220px;pointer-events:none;z-index:1;
   background:linear-gradient(180deg,rgba(4,10,28,.55),rgba(4,10,28,.28) 55%,rgba(4,10,28,0))}
+.desk-view .shade{opacity:.20}
+.desk-view::before{height:160px;opacity:.45}
+.desk-view .vignette,.desk-view .shade-b{opacity:.5}
 .caption{position:fixed;z-index:2;top:48px;left:50%;transform:translateX(-50%);width:min(920px,calc(100vw - 28px));text-align:center;
   text-shadow:0 1px 2px rgba(0,0,0,.45),0 2px 18px rgba(0,0,0,.6);pointer-events:none}
 .caption h2{margin:10px 0 8px;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;font-weight:700;letter-spacing:-.022em;
   font-size:clamp(1.75rem,3.5vw,2.9rem);line-height:1.08;color:#fff;text-wrap:balance}
+/* during the ride inside the cable: a hair next to one glass thread, for size */
+.size-legend{position:fixed;z-index:2;left:50%;bottom:112px;transform:translateX(-50%);display:grid;gap:10px;padding:14px 22px;border-radius:20px;
+  background:rgba(6,14,40,.5);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  color:#e6eeff;font-weight:600;font-size:clamp(.95rem,1.5vw,1.15rem);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .5s}
+.size-legend.on{opacity:1}
+.size-legend div{display:flex;align-items:center;gap:16px}
+.size-legend i{display:block;width:74px;border-radius:9px;flex:none}
+.size-legend .hair{height:9px;background:#9a7653}
+.size-legend .glass{height:3px;background:#bfe9ff;box-shadow:0 0 8px rgba(160,225,255,.9)}
 /* the opening screen has a bigger title */
 .caption.intro{top:72px}
 .caption.intro h2{font-size:clamp(2.1rem,5.4vw,4.3rem);line-height:1.05;margin-bottom:16px;max-width:15em;margin-left:auto;margin-right:auto}
@@ -80,6 +88,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:220px;pointer
   .top{padding:10px 12px}
   .timer{font-size:1.1rem}
   .caption{top:52px}
+  .size-legend{bottom:calc(168px + env(safe-area-inset-bottom))}
   .bottom{flex-direction:column;align-items:stretch;gap:10px;padding:12px 14px calc(14px + env(safe-area-inset-bottom))}
   .dots{width:100%}
   .main-btn{flex:1;white-space:normal}

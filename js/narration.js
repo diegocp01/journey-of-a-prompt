@@ -1,67 +1,77 @@
+import { narrationLines } from "./narration-lines.mjs";
+
 const labels = {
-  en: { listen: "Listen", mute: "Mute", retry: "Retry audio", voice: "AI voice", replay: "Replay this screen’s narration", error: "Audio could not play." },
-  es: { listen: "Escuchar", mute: "Silenciar", retry: "Reintentar", voice: "Voz de IA", replay: "Volver a escuchar esta pantalla", error: "No se pudo reproducir el audio." }
+  en: { credit: "AI-narrated tour", start: "Press Start for the narrated tour", blocked: "Tap to hear the narration", error: "Narration couldn’t load. Tap to retry." },
+  es: { credit: "Guía con voz de IA", start: "Pulsa Empezar para oír la guía", blocked: "Toca para escuchar la guía", error: "No se pudo cargar la voz. Toca para reintentar." }
 };
 
-export function createNarration(toggle, replay, status) {
+export function createNarration(status) {
+  // Reusing the element retains the playback permission granted by Start on iOS.
   const audio = new Audio();
-  audio.preload = "none";
-  let language, screen, enabled = false, failed = false, attempt = 0;
+  audio.preload = "auto";
+  let language, screen, phase = "idle", attempt = 0, afterIntro;
 
-  function paint() {
-    const text = labels[language];
-    toggle.querySelector(".voice-action").textContent = failed ? text.retry : enabled ? text.mute : text.listen;
-    toggle.querySelector(".voice-label").textContent = text.voice;
-    replay.title = text.replay;
-    replay.setAttribute("aria-label", text.replay);
-    replay.hidden = !enabled;
-    status.textContent = failed ? text.error : "";
-  }
-
-  function playbackFailed() {
-    enabled = false;
-    failed = true;
-    paint();
+  function setPhase(next) {
+    phase = next;
+    const copy = labels[language];
+    if (!copy) return;
+    const message = phase === "error" ? copy.error
+      : phase === "blocked" ? (screen === 1 ? copy.start : copy.blocked)
+      : screen === 1 ? copy.credit : "";
+    if (status.textContent !== message) status.textContent = message;
   }
 
   async function play() {
-    const currentAttempt = ++attempt;
-    const id = String(screen).padStart(2, "0");
-    const url = new URL(`../assets/narration/${language}/${id}.mp3`, import.meta.url).href;
-    if (audio.src !== url) audio.src = url;
-    else if (audio.error) audio.load();
-    else audio.currentTime = 0;
+    const request = ++attempt;
+    setPhase("starting");
     try {
       await audio.play();
-    } catch {
-      if (currentAttempt === attempt && enabled) playbackFailed();
+      if (request === attempt) setPhase("playing");
+    } catch (err) {
+      if (request !== attempt) return;
+      setPhase(err.name === "NotAllowedError" ? "blocked" : "error");
     }
   }
 
-  audio.addEventListener("error", () => {
-    if (enabled && audio.error) playbackFailed();
+  function retry() {
+    if (phase !== "error" && phase !== "blocked") return;
+    if (audio.error) audio.load();
+    play();
+  }
+  document.addEventListener("click", retry);
+  document.addEventListener("keyup", retry);
+  audio.addEventListener("error", () => { if (audio.error) setPhase("error"); });
+  audio.addEventListener("ended", () => {
+    if (!audio.ended) return;
+    setPhase("ended");
+    const advance = afterIntro;
+    afterIntro = undefined;
+    advance?.();
   });
-  toggle.addEventListener("click", () => {
-    if (!screen) return;
-    enabled = !enabled;
-    failed = false;
-    if (enabled) play();
-    else {
-      ++attempt;
-      audio.pause();
-    }
-    paint();
-  });
-  replay.addEventListener("click", play);
 
   return {
+    total: narrationLines.length,
+    get waitingForEnd() { return phase !== "ended" && phase !== "error"; },
     setScreen(nextLanguage, nextScreen) {
       if (language === nextLanguage && screen === nextScreen) return;
+      const recording = narrationLines[nextScreen - 1];
       language = nextLanguage;
       screen = nextScreen;
-      failed = false;
-      paint();
-      if (enabled) play();
+      afterIntro = undefined;
+      audio.src = new URL(`../assets/narration/${language}/${recording.id}.mp3`, import.meta.url).href;
+      play();
+    },
+    startIntro(advance) {
+      // Browsers that require a gesture get their first audible play in this
+      // click. Finish the introduction and take that same Start press forward.
+      if (afterIntro) return;
+      if (phase === "blocked" || phase === "error" || (phase === "starting" && audio.paused)) {
+        afterIntro = advance;
+        if (audio.error) audio.load();
+        play();
+      } else {
+        advance();
+      }
     }
   };
 }

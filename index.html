@@ -6,6 +6,7 @@
 <title>Journey of a Prompt</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f6fed'/%3E%3Crect x='12' y='20' width='40' height='26' rx='5' fill='%23fff'/%3E%3Cpath d='M13 22l19 14 19-14' fill='none' stroke='%232f6fed' stroke-width='4'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/chip-lesson.css">
 </head>
 <body>
 <canvas id="gl" tabindex="-1"></canvas>
@@ -14,15 +15,19 @@
 <div class="shade-b"></div>
 
 <div class="top">
-  <div class="voice-controls">
-    <button class="voice-button" id="voiceBtn" type="button"><span class="voice-action">Listen</span><small class="voice-label">AI voice</small></button>
-    <button class="voice-replay" id="replayVoice" type="button" aria-label="Replay this screen’s narration" hidden>↺</button>
-    <span id="voiceStatus" role="status"></span>
-  </div>
+  <span id="voiceStatus" role="status"></span>
   <div class="timer"><span id="timerValue">0.00</span><i>/ 20 s</i><small id="timerLabel"></small></div>
 </div>
 
+<section id="chipLesson" aria-labelledby="lessonHeading" hidden></section>
+
 <div class="caption" id="caption" aria-live="polite"></div>
+
+<!-- shown only during the ride inside the cable: how thin one glass thread is -->
+<div class="size-legend" id="sizeLegend">
+  <div><i class="hair"></i><span id="lgHair"></span></div>
+  <div><i class="glass"></i><span id="lgGlass"></span></div>
+</div>
 
 <div class="bottom">
   <div class="legend">
