@@ -32,8 +32,8 @@ const MODEL=4,HOME=5;
 const BEATS=[[0,6.2],[0],[0,6],[0,5],null,[0]];
 /* when the next short line of a step appears (story seconds from the start of the action) */
 /* story time in each beat when its picture is done and the main button turns on */
-const READY=[[2,10.9],[8.6],[2.4,12.4],[3.8,13.3],null,[1.2]];
-const ITEMS=[[[3,5.3],[8.7,10.9]],[[3.5,5.8]],[[3.2],[9.2,11.8]],[[3],[9.6,11.8]],null,[[1.6]]];
+const READY=[[2,10.9],[8.6],[2,12.4],[3.8,13.3],null,[1.2]];
+const ITEMS=[[[3,5.3],[8.7,10.9]],[[3.5,5.8]],[[3.5],[9.2,11.8]],[[3],[9.6,11.8]],null,[[1.6]]];
 const beatTimes=i=>BEATS[i];
 const $=id=>document.getElementById(id);
 const V=(x,y,z)=>new THREE.Vector3(x,y,z);
@@ -56,7 +56,9 @@ function gate(delay,fn,label){gates.push({t:clock+delay-.001,fn,label});gates.so
 function release(){if(!waiting) return;waiting=false;const g=gates.shift();if(g.fn) g.fn();renderHUD();}
 function at(delay,fn){tasks.push({start:clock+delay,dur:0,fn});}
 function tween(delay,dur,fn,easing){tasks.push({start:clock+delay,dur,fn,easing});}
-function clearTasks(){tasks.forEach(t=>t.dead=true);tasks=[];temps.forEach(o=>o.parent&&o.parent.remove(o));temps=[];liveTimer=null;gates=[];waiting=false;stepping=false;realSpeed=false;if(typeof speedLabel!=="undefined"&&speedLabel){speedLabel.visible=false;speedLabel.material.opacity=0;}stageGoal=0;waveOn=0;softs=[];readUntil=0;openAt=Infinity;}
+function clearTasks(){tasks.forEach(t=>t.dead=true);tasks=[];temps.forEach(o=>o.parent&&o.parent.remove(o));temps=[];liveTimer=null;gates=[];waiting=false;stepping=false;realSpeed=false;if(typeof speedLabel!=="undefined"&&speedLabel){speedLabel.visible=false;speedLabel.material.opacity=0;}stageGoal=0;waveOn=0;softs=[];readUntil=0;openAt=Infinity;setLegend(false);}
+/* the small "hair next to a glass thread" panel above the bottom bar */
+function setLegend(on){$("sizeLegend").classList.toggle("on",on);}
 function runTasks(){
   for(const t of tasks.slice()){
     if(t.dead||clock<t.start) continue;
@@ -1329,25 +1331,30 @@ const actions=[
     travel({delay:7.7,env:[[44.8,.9,-5.5],[47.8,.5,-5.45]],dur:.9,follow:false});
     return 9;
   },
-  ()=>{ /* the internet: ride inside the glass thread as the message itself, then cross the sea floor */
+  ()=>{ /* the internet: one second inside the glass thread as the message itself, then the envelope crosses the sea floor in two legs */
     const tmp=V(0,0,0);
     fade(()=>{
       hideGlobe();heroVis=0;hero.position.set(TUNNEL_AT.x+40,0,0);
       camBase.copy(TUNNEL_AT);lookGoal.set(TUNNEL_AT.x+6,0,0);lookCur.copy(lookGoal);
-      tunnelFov=0;tunnelSpeed=.25;
-      /* it starts slow, then the view stretches and the walls streak past */
-      tween(.15,1.5,p=>{tunnelFov=p;tunnelSpeed=.25+1.05*p;},ease);
+      tunnelFov=.55;tunnelSpeed=1.3;
+      tween(0,.5,p=>{tunnelFov=.55+.45*p;},ease);
+      setLegend(true);
     });
-    at(6,()=>{
-      fade(()=>{
-        hideGlobe();placeAt(2);heroDark=0;
-        const home=hero.position.clone();
-        const cc=new THREE.CatmullRomCurve3([camBase.clone(),...[[124,3.2,2.6],[140,-3.4,2.6],[165,-10.3,3],[190,-11.6,3.4],[215,-10.3,3],[240,-3.4,2.6],[252,2.6,3],[257,4.2,3.6]].map(v3)],false,"catmullrom",.35);
-        /* the speed shows next to the light for a moment, then goes away */
-        speedLabel.visible=true;tween(1.3,.5,p=>{speedLabel.material.opacity=p;});tween(4.3,.6,p=>{speedLabel.material.opacity=1-p;});at(4.9,()=>{speedLabel.visible=false;});
-        tween(.1,7.6,p=>{cc.getPointAt(p,camBase);seaCurves[1].getPointAt(clamp01(p*.96+.03),tmp);tmp.y+=.4;hero.position.lerpVectors(home,tmp,smooth(0,.07,p));lookGoal.copy(hero.position);lookCur.lerp(lookGoal,.5);},t=>1-Math.pow(1-t,1.6));
-      });
-    });
+    let home=null,cc=null;
+    const rideTo=p=>{cc.getPointAt(p,camBase);seaCurves[1].getPointAt(clamp01(p*.96+.03),tmp);tmp.y+=.4;hero.position.lerpVectors(home,tmp,smooth(0,.07,p));lookGoal.copy(hero.position);lookCur.lerp(lookGoal,.5);};
+    /* after about one second of that view, a flash of light, and we are outside watching the envelope run along the cable */
+    at(1,()=>flash(()=>{
+      placeAt(2);heroDark=0;
+      home=hero.position.clone();
+      cc=new THREE.CatmullRomCurve3([camBase.clone(),...[[124,3.2,2.6],[140,-3.4,2.6],[165,-10.3,3],[190,-11.6,3.4],[215,-10.3,3],[240,-3.4,2.6],[252,2.6,3],[257,4.2,3.6]].map(v3)],false,"catmullrom",.35);
+      /* first leg: from the shore down to the deep sea floor, slowing to a stop there */
+      tween(.1,4.3,p=>rideTo(.5*p),t=>1-(1-t)*(1-t));
+      /* the speed shows next to the light for a moment, then goes away */
+      speedLabel.visible=true;tween(1,.5,p=>{speedLabel.material.opacity=p;});tween(3.4,.6,p=>{speedLabel.material.opacity=1-p;});at(4,()=>{speedLabel.visible=false;});
+    }));
+    /* second leg, on the next tap: up the far slope toward the other shore */
+    at(6,()=>{setLegend(false);});
+    tween(6.05,5.5,p=>{if(cc) rideTo(.5+.42*p);},t=>t<.3?t*t/.51:(2*t-.3)/1.7);
     at(11.6,()=>fade(()=>showGlobe("web")));
     at(14.4,()=>{hero.position.set(263,3,0);camBase.set(258.2,4.3,3.2);lookGoal.set(263,3,0);lookCur.copy(lookGoal);});
     return 15;
@@ -1723,7 +1730,7 @@ function step(dt,draw){
   scene.background=zn==="intro"?introBg:bgColor;
   /* inside the cable: the ride is only there while the camera is, with a much wider view for the feeling of speed */
   const inTube=zn==="tunnel";
-  if(inTube!==tunnelFx.root.visible){tunnelFx.show(inTube);$("sizeLegend").classList.toggle("on",inTube);}
+  if(inTube!==tunnelFx.root.visible) tunnelFx.show(inTube);
   if(!inTube) tunnelFov=0;
   const fovNow=(camera.aspect<1?60:45)+(camera.aspect<1?38:52)*tunnelFov;
   if(Math.abs(camera.fov-fovNow)>.01){camera.fov=fovNow;camera.updateProjectionMatrix();}
