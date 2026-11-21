@@ -256,7 +256,7 @@ function oliveVase(parent) {
     d.scale.setScalar(length);
     d.updateMatrix();
     leaves.push(d.matrix.clone());
-    colors.push(new THREE.Color().setHSL(0.19 + rand() * 0.035, 0.29 + rand() * 0.10, 0.14 + rand() * 0.12));
+    colors.push(new THREE.Color().setHSL(0.19 + rand() * 0.035, 0.29 + rand() * 0.1, 0.14 + rand() * 0.12));
   };
   const twigs = [];
   const stem = (a, b, c, r) =>
@@ -369,13 +369,35 @@ export function createWritingDesk(scene, studio) {
   woodMap.rotation = Math.PI / 2;
   woodMap.repeat.set(0.83, 1.9);
   woodMap.anisotropy = 8;
-  const walnut = material(new THREE.Color(1.62, 1.72, 1.67), 0.44, {
+  const walnut = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(1.53, 3.2, 3.1),
+    roughness: 0.55,
+    specularIntensity: 0.18,
     map: woodMap,
     bumpMap: woodMap,
     bumpScale: 0.00032,
     envMapIntensity: 0.21,
   });
-  mesh(desk, new RoundedBoxGeometry(1.91, 0.041, 0.77, 3, 0.004), walnut, 0, -0.0205, 0.375);
+  // Diffuse light bounced by the shade and plaster. Project it in tabletop
+  // coordinates so it follows the lamp independently of the grain direction.
+  const bouncedLight = surface(256, 128, (x, y) => {
+    const dx = (x / 255 - 0.5) * 1.91;
+    const dz = (y / 127) * 0.77 - 0.18;
+    const falloff = Math.exp(-((dx / 0.2) ** 2 + (dz / 0.31) ** 2) / 2);
+    return [242 * falloff, 202 * falloff, 148 * falloff];
+  });
+  bouncedLight.channel = 1;
+  const top = new RoundedBoxGeometry(1.91, 0.041, 0.77, 3, 0.004);
+  const vertices = top.getAttribute('position'),
+    lightUV = [];
+  for (let i = 0; i < vertices.count; i++) {
+    lightUV.push(vertices.getX(i) / 1.91 + 0.5, 0.5 - vertices.getZ(i) / 0.77);
+  }
+  top.setAttribute('uv1', new THREE.Float32BufferAttribute(lightUV, 2));
+  const tabletop = walnut.clone();
+  tabletop.lightMap = bouncedLight;
+  tabletop.lightMapIntensity = 6;
+  mesh(desk, top, tabletop, 0, -0.0205, 0.375);
   for (const x of [-0.9, 0.9])
     for (const z of [0.05, 0.7]) mesh(desk, new THREE.BoxGeometry(0.05, 0.71, 0.05), walnut, x, -0.395, z);
 
@@ -474,6 +496,7 @@ export function createWritingDesk(scene, studio) {
         prop.position.x = x * spread;
         prop.scale.setScalar(0.4 + 0.6 * spread);
       }
+      bouncedLight.offset.x = -(taskLamp.position.x + 0.112 * taskLamp.scale.x) / 1.91;
     },
   };
 }
