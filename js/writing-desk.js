@@ -10,6 +10,9 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const material = (color, roughness, other = {}) => new THREE.MeshStandardMaterial({ color, roughness, ...other });
 
 function mesh(parent, geometry, mat, x = 0, y = 0, z = 0) {
+  // Keep the direction of the brushed brass attached to the curved metal
+  // as the camera moves. The shade and stem both have indexed UVs.
+  if (mat.anisotropy > 0 && geometry.index) geometry.computeTangents();
   const object = new THREE.Mesh(geometry, mat);
   object.position.set(x, y, z);
   object.castShadow = object.receiveShadow = true;
@@ -261,7 +264,9 @@ function linenBook(parent) {
     return [158 + n, 132 + n, 106 + n];
   };
   const textile = surface(768, 384, weave);
-  const cloth = material(0xefddca, 0.86, { map: textile, bumpMap: textile, bumpScale: 0.00014 });
+  // The weave is visible in the color map. Bump mapping the thin cover bevel
+  // at grazing angles produces isolated highlights that bloom over the lamp.
+  const cloth = material(0xefddca, 0.86, { map: textile });
   const cover = new RoundedBoxGeometry(0.224, 0.0028, 0.118, 3, 0.0011);
   mesh(parent, cover, cloth, 0, 0.0016);
   mesh(parent, cover, cloth, 0, 0.0331);
