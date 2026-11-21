@@ -63,7 +63,7 @@ This is a teaching model, not a network diagram. A few things are simplified on 
 ## Credits
 
 - [three.js](https://threejs.org) (MIT), loaded from jsDelivr, including the Earth textures from its examples.
-- Textures and 3D models from [Poly Haven](https://polyhaven.com) (CC0). The ocean floor bundles the color and normal maps from [Gravelly Sand](https://polyhaven.com/a/gravelly_sand).
+- Textures and 3D models from [Poly Haven](https://polyhaven.com) (CC0). The ocean floor bundles the color and normal maps from [Gravelly Sand](https://polyhaven.com/a/gravelly_sand) and the surface texture from [Rock Boulder Cracked](https://polyhaven.com/a/rock_boulder_cracked).
 - Desk grain from [Wood Table 001](https://polyhaven.com/a/wood_table_001) (CC0), bundled with the scene.
 - The main phone and hand image was created with ImageGen.
 - Fallback hand model from [Babylon.js Assets](https://github.com/BabylonJS/Assets) (CC BY 4.0), loaded from assets.babylonjs.com, with skin tones, nails and smoothing added here.

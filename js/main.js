@@ -639,10 +639,18 @@ let beacon,towerCab;
 /* a real cable with light inside: it has a body that takes the daylight, and only glows strongly in the dark */
 const cableMat=new THREE.MeshStandardMaterial({color:0x16384a,emissive:0x35d6ff,emissiveIntensity:1.5,roughness:.45,metalness:.2,envMapIntensity:.5});
 const curves=[];
-const ribs=canvasTex(64,8,(g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,"#41545a");gr.addColorStop(.5,"#8c9d9c");gr.addColorStop(1,"#41545a");g.fillStyle=gr;g.fillRect(0,0,w,h);});
-ribs.redraw();ribs.tex.wrapS=ribs.tex.wrapT=THREE.RepeatWrapping;ribs.tex.repeat.set(360,1);
+const ribs=canvasTex(256,128,(g,w,h)=>{
+  const surface=g.createImageData(w,h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const helical=(x/w*12+y/h*3)*Math.PI*2;
+    const value=88+9*Math.cos(helical)-12*Math.max(0,Math.cos(helical+.9))**8+2*Math.sin(x*2.1+y*3.7);
+    const i=(y*w+x)*4;surface.data.set([value*.88,value,value*1.04,255],i);
+  }
+  g.putImageData(surface,0,0);
+});
+ribs.redraw();ribs.tex.wrapS=ribs.tex.wrapT=THREE.RepeatWrapping;ribs.tex.repeat.set(152,1);
 /* the sea cables are armoured: dark, ribbed, with the light travelling inside */
-const seaCableMat=new THREE.MeshStandardMaterial({color:0x899d9d,map:ribs.tex,bumpMap:ribs.tex,bumpScale:.023,roughness:.64,metalness:.18,envMapIntensity:.42});
+const seaCableMat=new THREE.MeshStandardMaterial({color:0x899d9d,map:ribs.tex,bumpMap:ribs.tex,bumpScale:.009,roughness:.71,metalness:.18,envMapIntensity:.42});
 function cable(points,r=.07,mat=cableMat,rad=6){
   const c=new THREE.CatmullRomCurve3(points.map(v3),false,"catmullrom",.4);
   const m=new THREE.Mesh(new THREE.TubeGeometry(c,Math.max(40,points.length*14),r,rad),mat);scene.add(m);curves.push(c);return c;
@@ -1640,7 +1648,7 @@ function step(dt,draw){
   heroPaper.color.lerpColors(PAPER_DAY,PAPER_DARK,heroDark);
   heroPaper.emissiveIntensity=.48*heroDark+.5*shine;heroFlap.emissiveIntensity=.42+.63*heroDark+1.15*shine;heroGlow.material.opacity=.04*heroDark+.46*shine;
   heroIn.scale.setScalar(1-.3*shine);flare.material.opacity=shine*.9;core.material.opacity=shine*.4;
-  heroLight.intensity=.3*heroS*heroS*heroVis*(1+1.3*lightOn)*(.05+.3*heroDark+.65*shine);heroLight.distance=7*heroS;
+  heroLight.intensity=(hz==="sea"?.09:.3)*heroS*heroS*heroVis*(1+1.3*lightOn)*(.05+.3*heroDark+.65*shine);heroLight.distance=7*heroS;
   for(let k=TRAIL-1;k>0;k--){trailPos[k*3]=trailPos[k*3-3];trailPos[k*3+1]=trailPos[k*3-2];trailPos[k*3+2]=trailPos[k*3-1];}
   hero.position.toArray(trailPos,0);trailGeo.attributes.position.needsUpdate=true;
   trail.material.size=.055*heroS;trail.material.opacity=.5*heroVis*(.15+.85*heroDark);
