@@ -3,9 +3,8 @@
    a trunk, then rings of drooping boughs, each bough a pair of crossed cards showing a twig photo.
    The full scanned tree model is hundreds of megabytes, so only its small textures are used. */
 import * as THREE from 'three';
+import {registerScan} from './scan-lod.js';
 
-const PH = 'https://dl.polyhaven.org/file/ph-assets';
-const FIR = `${PH}/Models/jpg/1k/fir_tree_01/fir_tree_01_`;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
 /* where each twig sits in the twig photo sheet: [u0, u1, v at the stem, v at the tip] */
@@ -69,10 +68,7 @@ function firGeometry(seed) {
   needles.setIndex(idx);
   const trunk = new THREE.CylinderGeometry(.035, .21, H - .4, 8, 6);
   trunk.translate(0, (H - .4) / 2, 0);
-  /* a dark, soft-edged body inside the boughs, so far trees do not look see-through */
-  const core = new THREE.ConeGeometry(R * .5, H * .86, 9, 1, true);
-  core.translate(0, .8 + H * .43, 0);
-  return {needles, trunk, core};
+  return {needles, trunk};
 }
 
 /* Plant a forest. spots: [{x, z, s, rot}] */
@@ -80,10 +76,16 @@ export function createForest(scene, spots) {
   const loader = new THREE.TextureLoader(), group = new THREE.Group();
   group.name = 'Forest';
   scene.add(group);
-  const tex = (name, srgb, cb) => loader.load(FIR + name, t => { if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; cb(t); });
-
-  const needleMat = new THREE.MeshStandardMaterial({color: 0x6f8a52, vertexColors: true, roughness: .82, metalness: 0, envMapIntensity: .3,
-    alphaTest: .3, side: THREE.FrontSide});
+  const texture = (name, srgb) => {
+    const map = loader.load(new URL('../assets/land/' + name, import.meta.url).href);
+    if (srgb) map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = 8;
+    return map;
+  };
+  // The photographed needles and their cutout share a single local atlas, so
+  // the forest never briefly shows opaque rectangles while a second map loads.
+  const needleMat = new THREE.MeshStandardMaterial({map: texture('fir-bough.webp', true),
+    color: 0xd6e6c4, vertexColors: true, roughness: .82, envMapIntensity: .3, alphaTest: .3});
   needleMat.alphaToCoverage = true;
   /* the boughs sway a little in the wind */
   needleMat.onBeforeCompile = shader => {
@@ -100,29 +102,76 @@ export function createForest(scene, spots) {
         transformed.y += sin(uWind * 2.1 + ph * 1.7 + reach * 2.) * .022 * reach;`);
   };
   const barkMat = new THREE.MeshStandardMaterial({color: 0x5a4636, roughness: .95, metalness: 0, envMapIntensity: .15});
-  const coreMat = new THREE.MeshStandardMaterial({color: 0x1d3020, roughness: 1, metalness: 0, envMapIntensity: .05});
-  tex('twig_diff_1k.jpg', true, t => { needleMat.map = t; needleMat.color.set(0xd6e6c4); needleMat.needsUpdate = true; });
-  tex('twig_alpha_1k.jpg', false, t => { needleMat.alphaMap = t; needleMat.needsUpdate = true; });
-  tex('bark_diff_1k.jpg', true, t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 5); barkMat.map = t; barkMat.color.set(0xb9ab9c); barkMat.needsUpdate = true; });
-  tex('bark_nor_gl_1k.jpg', false, t => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 5); barkMat.normalMap = t; barkMat.needsUpdate = true; });
+  barkMat.color.set(0xb9ab9c);
+  barkMat.map = texture('fir-bark.webp', true);
+  barkMat.normalMap = texture('fir-bark-normal.webp', false);
+  for (const map of [barkMat.map, barkMat.normalMap]) {
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(2, 5);
+  }
 
-  const KINDS = 4, dummy = new THREE.Object3D();
-  for (let k = 0; k < KINDS; k++) {
-    const mine = spots.filter((_, i) => i % KINDS === k);
-    if (!mine.length) continue;
-    const g = firGeometry(1234 + k * 977);
-    const parts = [[g.needles, needleMat, true], [g.trunk, barkMat, true], [g.core, coreMat, false]].map(([geo, mat, cast]) => {
-      const m = new THREE.InstancedMesh(geo, mat, mine.length);
-      m.castShadow = cast; m.receiveShadow = true; m.frustumCulled = false;
-      group.add(m);
-      return m;
+  const dummy=new THREE.Object3D();
+  const silhouette = new THREE.MeshBasicMaterial({map:texture('distant-firs.webp', true),alphaTest:.24});
+  silhouette.alphaToCoverage=true;
+  // The atlas was rendered from these same four firs. Face the distant image
+  // toward the viewer around its trunk; the height and footprint stay fixed.
+  silhouette.onBeforeCompile=shader=>{
+    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',`
+      #include <begin_vertex>
+      #ifdef USE_INSTANCING
+        vec3 localEye=(inverse(modelMatrix*instanceMatrix)*vec4(cameraPosition,1.)).xyz;
+        vec2 horizontal=normalize(localEye.xz+vec2(1e-6));
+        transformed.xz=position.x*vec2(horizontal.y,-horizontal.x);
+      #endif`);
+  };
+  const kinds=Array.from({length:4},(_,i)=>{
+    const tree=firGeometry(1234+i*977);
+    const airy=tree.needles.clone(),faces=[],source=tree.needles.index.array;
+    // Keep the original placement of the large boughs in the middle tier;
+    // only the narrow crossed cards and every third branch drop away.
+    for(let k=0;k<source.length;k+=12){
+      const card=k/12;
+      if(k<source.length-36&&(card%2===1||Math.floor(card/2)%3===1))continue;
+      for(let j=0;j<12;j++)faces.push(source[k+j]);
+    }
+    airy.setIndex(faces);
+    const distant=[0,1].map(view=>{
+      const geo=new THREE.PlaneGeometry(5.3,9.5);geo.translate(0,4.30,0);
+      const uv=geo.attributes.uv;
+      for(let n=0;n<uv.count;n++)uv.setXY(n,(i+uv.getX(n))/4,(1-view+uv.getY(n))/2);
+      return geo;
     });
-    mine.forEach((sp, i) => {
-      dummy.position.set(sp.x, 0, sp.z); dummy.rotation.set(0, sp.rot, 0); dummy.scale.setScalar(sp.s * .92);
-      dummy.updateMatrix();
-      parts.forEach(m => m.setMatrixAt(i, dummy.matrix));
-    });
-    parts.forEach(m => { m.instanceMatrix.needsUpdate = true; });
+    return {tree,airy,distant};
+  });
+  const stands=new Map(),cellSize=22;
+  spots.forEach(sp=>{
+    const gx=Math.floor(sp.x/cellSize),gz=Math.floor(sp.z/cellSize),key=gx+','+gz;
+    if(!stands.has(key))stands.set(key,{gx,gz,trees:[]});
+    stands.get(key).trees.push(sp);
+  });
+  for(const {gx,gz,trees} of stands.values()){
+    const kind=kinds[Math.abs(gx*17+gz*11)%4],lod=new THREE.LOD();
+    const cx=(gx+.5)*cellSize,cz=(gz+.5)*cellSize;
+    lod.position.set(cx,3.8,cz);group.add(lod);
+    function tier(distance,parts){
+      const crown=new THREE.Group();lod.addLevel(crown,distance,.08);
+      for(const [geo,mat,cast] of parts){
+        const inst=new THREE.InstancedMesh(geo,mat,trees.length);
+        trees.forEach((sp,i)=>{
+          dummy.position.set(sp.x-cx,-3.8,sp.z-cz);
+          dummy.rotation.set(0,sp.rot,0);dummy.scale.setScalar(sp.s*.92);dummy.updateMatrix();
+          inst.setMatrixAt(i,dummy.matrix);
+        });
+        inst.castShadow=cast;inst.receiveShadow=mat!==silhouette;
+        inst.computeBoundingSphere();inst.boundingSphere.radius+=.15;
+        crown.add(inst);
+      }
+    }
+    tier(0,[[kind.tree.needles,needleMat,true],[kind.tree.trunk,barkMat,true]]);
+    // Fill the sparse mid-distance branches with the matching photographed
+    // fir, so gaps reveal the layers of needles inside the crown.
+    tier(22,[[kind.airy,needleMat,true],[kind.distant[Math.abs(gx+gz)%2],silhouette,false]]);
+    tier(45,[[kind.distant[Math.abs(gx+gz)%2],silhouette,false]]);
   }
   return group;
 }
@@ -138,55 +187,108 @@ export function scatter(scene, modelScene, places, {cast = true, maxTris = Infin
     const g = o.geometry, tris = (g.index ? g.index.count : g.attributes.position.count) / 3;
     if (tris > maxTris) return;
     const box = new THREE.Box3().setFromObject(o);
-    kinds.push({o, home: new THREE.Matrix4().makeTranslation(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2), spots: []});
+    kinds.push({o,diameter:box.getSize(new THREE.Vector3()).length(), home: new THREE.Matrix4().makeTranslation(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2), spots: []});
   });
   if (!kinds.length) return [];
   places.forEach((p, i) => kinds[i % kinds.length].spots.push(p));
   const dummy = new THREE.Object3D(), m4 = new THREE.Matrix4(), out = [];
-  kinds.forEach(({o, home, spots}) => {
+  kinds.forEach(({o,home,spots,diameter}) => {
     if (!spots.length) return;
-    const inst = new THREE.InstancedMesh(o.geometry, o.material, spots.length);
-    inst.castShadow = cast; inst.receiveShadow = true; inst.frustumCulled = false;
-    spots.forEach((p, i) => {
-      dummy.position.set(p.x, p.y || 0, p.z); dummy.rotation.set(0, p.rot || 0, 0); dummy.scale.setScalar(p.s || 1);
-      dummy.updateMatrix();
-      inst.setMatrixAt(i, m4.copy(dummy.matrix).multiply(home).multiply(o.matrixWorld));
-    });
-    scene.add(inst);
-    out.push(inst);
+    // One bounding sphere spanning two coasts would intersect nearly every
+    // camera and shadow frustum. Keep each species in small, local stands.
+    const stands = new Map();
+    for(const spot of spots){
+      const key=Math.floor(spot.x/16)+','+Math.floor(spot.z/16);
+      if(!stands.has(key)) stands.set(key,[]);
+      stands.get(key).push(spot);
+    }
+    const batches=[];
+    for(const stand of stands.values()){
+      const inst = new THREE.InstancedMesh(o.geometry, o.material, stand.length);
+      inst.name=o.name;inst.castShadow=cast;inst.receiveShadow=true;
+      stand.forEach((p,i)=>{
+        dummy.position.set(p.x,p.y||0,p.z);dummy.rotation.set(0,p.rot||0,0);dummy.scale.setScalar(p.s||1);
+        dummy.updateMatrix();
+        inst.setMatrixAt(i,m4.copy(dummy.matrix).multiply(home).multiply(o.matrixWorld));
+      });
+      inst.computeBoundingSphere();scene.add(inst);out.push(inst);
+      batches.push({mesh:inst,diameter:diameter*Math.max(...stand.map(p=>p.s||1))});
+    }
+    registerScan(o.name,o.geometry,batches);
   });
   return out;
 }
 
-/* soft white clouds, painted once and hung on the sky */
-export function createClouds(skyGroup, count = 16) {
-  const rand = rng(77), canvas = document.createElement('canvas');
-  canvas.width = 512; canvas.height = 256;
-  const g = canvas.getContext('2d');
-  for (let i = 0; i < 46; i++) {
-    const x = 70 + rand() * 372, y = 150 - Math.pow(rand(), 1.6) * 80 + Math.abs(x - 256) * .12, r = 26 + rand() * 46;
-    const gr = g.createRadialGradient(x, y, 0, x, y, r);
-    gr.addColorStop(0, 'rgba(255,255,255,.34)'); gr.addColorStop(.55, 'rgba(255,255,255,.14)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+// Broad land color belongs to the terrain; the local photograph supplies the
+// individual stems, needles and exposed earth. Varying these at separate
+// scales keeps the wide aerial shot from exposing a repeated square tile.
+export function landGround(scene, patches) {
+  const load = (name, color) => {
+    const map=new THREE.TextureLoader().load(new URL('../assets/land/'+name+'.webp',import.meta.url).href);
+    map.wrapS=map.wrapT=THREE.RepeatWrapping;map.anisotropy=8;
+    if(color)map.colorSpace=THREE.SRGBColorSpace;
+    return map;
+  };
+  const mat=new THREE.MeshStandardMaterial({map:load('woodland-floor',true),
+    normalMap:load('woodland-floor-normal',false),normalScale:new THREE.Vector2(.42,.42),
+    roughnessMap:load('woodland-floor-roughness',false),envMapIntensity:.1,vertexColors:true});
+  const base=new THREE.Color();
+  for(const [cx,width] of patches){
+    const geo=new THREE.PlaneGeometry(width,700,84,110);geo.rotateX(-Math.PI/2);
+    const pos=geo.attributes.position,uv=geo.attributes.uv,colors=[];
+    for(let i=0;i<pos.count;i++){
+      const x=pos.getX(i)+cx,z=pos.getZ(i);
+      const wet=.5+.22*Math.sin(x*.105+Math.sin(z*.076)*1.9)+.22*Math.sin(z*.112+x*.072)+.06*Math.cos(x*.26-z*.19);
+      base.setRGB(.76+wet*.21,.81+wet*.26,.65+wet*.19);
+      colors.push(base.r,base.g,base.b);
+      uv.setXY(i,x/5.4+.21*Math.cos(z*.035),z/5.4+.31*Math.sin(x*.062));
+    }
+    geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    const field=new THREE.Mesh(geo,mat);field.position.set(cx,-.02,0);field.receiveShadow=true;scene.add(field);
   }
-  /* a flatter, slightly grey underside */
-  const shade = g.createLinearGradient(0, 120, 0, 215);
-  shade.addColorStop(0, 'rgba(120,140,170,0)'); shade.addColorStop(1, 'rgba(120,140,170,.3)');
-  g.globalCompositeOperation = 'source-atop'; g.fillStyle = shade; g.fillRect(0, 0, 512, 256);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const group = new THREE.Group();
-  group.name = 'Clouds';
-  for (let i = 0; i < count; i++) {
-    const az = rand() * 6.283, el = .1 + Math.pow(rand(), 1.5) * .55, d = 1150, w = 300 + rand() * 360;
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent: true, opacity: .55 + rand() * .35, depthWrite: false, fog: false}));
-    sp.position.set(Math.cos(az) * Math.cos(el) * d, Math.sin(el) * d, Math.sin(az) * Math.cos(el) * d);
-    sp.scale.set(w, w * (.36 + rand() * .14), 1);
-    sp.material.rotation = (rand() - .5) * .12;
-    group.add(sp);
-  }
-  skyGroup.add(group);
-  return group;
+}
+
+export function distantRidges(scene, ranges) {
+  const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,envMapIntensity:.04});
+  ranges.forEach(([x,z,span,height],i)=>{
+    const count=72,rings=16,pos=[],colors=[],indices=[],shade=new THREE.Color();
+    for(let j=0;j<=rings;j++){
+      const r=j/rings;
+      for(let k=0;k<=count;k++){
+        const a=k/count*Math.PI*2,rad=r*(1+.065*Math.sin(a*5+i)+.038*Math.cos(3*a+i*.7));
+        const px=Math.cos(a)*rad,pz=Math.sin(a)*rad;
+        const fold=.85+.17*Math.sin(px*6+i)*Math.cos(pz*4.5+i*.4)+.085*Math.cos(8*pz+3*px);
+        const h=(1-r*r)**1.6*fold;
+        pos.push(px*span,h*height-3,pz*span*.72);
+        const d=.5+.28*Math.sin(a*6+i)*r+.19*Math.cos(px*9-pz*5);
+        shade.setRGB(.093+.055*d+.017*h,.171+.063*d+.017*h,.119+.036*d+.017*h);
+        colors.push(shade.r,shade.g,shade.b);
+        if(j<rings&&k<count){const n=j*(count+1)+k;
+          indices.push(n,n+1,n+count+1,n+1,n+count+2,n+count+1);}
+      }
+    }
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setIndex(indices);g.computeVertexNormals();
+    const ridge=new THREE.Mesh(g,mat);ridge.position.set(x,0,z);ridge.name='Rolling wooded ridge';scene.add(ridge);
+  });
+}
+
+// One continuous photographed hemisphere preserves the sun-facing cloud rims,
+// broad shaded bases and fine, wind-torn edges from every camera bearing.
+export function createClouds(skyGroup) {
+  const texture=new THREE.TextureLoader().load(new URL('../assets/land/afternoon-sky.webp',import.meta.url).href);
+  texture.colorSpace=THREE.SRGBColorSpace;
+  texture.wrapS=THREE.RepeatWrapping;
+  const dome=new THREE.Mesh(
+    new THREE.SphereGeometry(1240,64,24,0,Math.PI*2,0,Math.PI/2),
+    new THREE.MeshBasicMaterial({map:texture,side:THREE.BackSide,fog:false,depthWrite:false})
+  );
+  dome.name='Afternoon cloudscape';
+  dome.rotation.y=-.41;
+  // Draw above the fallback gradient, behind every physical object.
+  dome.renderOrder=-100;
+  skyGroup.add(dome);
+  return dome;
 }
 
 /* keep the wind moving; call once per frame with the time in seconds */

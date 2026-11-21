@@ -41,8 +41,22 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     map: texture, alphaTest: .24, transparent: true, toneMapped: false
   });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(
-    WIDTH * METRES_PER_PIXEL, HEIGHT * METRES_PER_PIXEL
+    WIDTH * METRES_PER_PIXEL, HEIGHT * METRES_PER_PIXEL, 52, 72
   ), material);
+  // Round the heel and forearm in depth, keeping the contact area and rails
+  // fixed. The wrist can then reveal its curvature during the return flight.
+  const relief = mesh.geometry.attributes.position;
+  for (let i=0; i<relief.count; i++) {
+    const x=WIDTH/2+relief.getX(i)/METRES_PER_PIXEL;
+    const y=HEIGHT/2-relief.getY(i)/METRES_PER_PIXEL;
+    const free=Math.max(THREE.MathUtils.smoothstep(x,568,665),THREE.MathUtils.smoothstep(y,SCREEN_TOP+DISPLAY.height+34,1150));
+    const center=644+.47*(y-850);
+    const arm=Math.exp(-(((x-center)/155)**2));
+    const wrist=THREE.MathUtils.smoothstep(y,790,1090);
+    const heel=Math.exp(-(((y-916)/152)**2+((x-682)/134)**2));
+    relief.setZ(i,free*(.012*heel+wrist*(.018*arm-.006)));
+  }
+  mesh.geometry.computeVertexNormals();
   mesh.name = 'ImageGen phone and hand';
   mesh.position.set(
     (WIDTH / 2 - DISPLAY.x - DISPLAY.width / 2) * METRES_PER_PIXEL,
@@ -103,6 +117,20 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
   thumbMesh.frustumCulled = false;
   mesh.add(thumbMesh);
 
+  // The polished nail and thumb pad have different curvature. Shape the
+  // photographed surface before its existing two joints bend it for the tap.
+  const thumbVertices = thumbMesh.geometry.attributes.position;
+  for (let i = 0; i < thumbVertices.count; i++) {
+    const x = LAYER.x + LAYER.width/2 + thumbVertices.getX(i)/METRES_PER_PIXEL;
+    const y = LAYER.y + LAYER.height/2 - thumbVertices.getY(i)/METRES_PER_PIXEL;
+    const along = (x-TIP.x)*.91 + (y-TIP.y)*.415;
+    const across = -(x-TIP.x)*.415 + (y-TIP.y)*.91;
+    const pad = Math.exp(-((across/47)**2)) * Math.exp(-(((along-126)/138)**2));
+    const nail = Math.max(0, 1-((along-43)/37)**2-((across+12)/29)**2);
+    thumbVertices.setZ(i,.0031*pad+.00085*nail);
+  }
+  thumbMesh.geometry.computeVertexNormals();
+
   const screenCanvas = document.createElement('canvas');
   screenCanvas.width = phoneLayout.width * 2;
   screenCanvas.height = phoneLayout.height * 2;
@@ -121,6 +149,22 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
 
   const plate = new Image();
   let glass, fingers, shadow, handPatch;
+  const reflection = {value: null};
+  screen.material.onBeforeCompile = shader => {
+    shader.uniforms.treeReflection = reflection;
+    shader.vertexShader = shader.vertexShader.replace('#include <common>',
+      '#include <common>\nvarying vec2 eyeSlope;')
+      .replace('#include <project_vertex>', `#include <project_vertex>
+        vec3 eye = cameraPosition - (modelMatrix * vec4(transformed, 1.)).xyz;
+        float dist = max(.025, dot(eye,normalize(modelMatrix[2].xyz)));
+        eyeSlope = vec2(dot(eye,normalize(modelMatrix[0].xyz)),dot(eye,normalize(modelMatrix[1].xyz)))/dist;`);
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>',
+      '#include <common>\nuniform sampler2D treeReflection; varying vec2 eyeSlope;')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        vec2 reflectionUV = vMapUv - clamp(eyeSlope,vec2(-.65),vec2(.65))*vec2(.15,.073);
+        float b = texture2D(treeReflection,reflectionUV).r;
+        diffuseColor.rgb = mix(diffuseColor.rgb,vec3(1.),b*.75);`);
+  };
 
   const blank = () => {
     const c = document.createElement('canvas');
@@ -255,7 +299,28 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
 
     // Three curled fingertips overlap the front rail. The uppermost finger
     // stays behind it. The moving thumb is the independent articulated mesh.
-    context.drawImage(fingers, 0, 106, fw, fh - 106, fx, fy + 106, fw, fh - 106);
+    const foreground = document.createElement('canvas');
+    foreground.width = fw; foreground.height = fh-106;
+    foreground.getContext('2d').drawImage(fingers,0,-106);
+    const fingerMap = new THREE.CanvasTexture(foreground);
+    fingerMap.colorSpace = THREE.SRGBColorSpace; fingerMap.anisotropy=8;
+    const fingerGeo = new THREE.PlaneGeometry(fw*METRES_PER_PIXEL,(fh-106)*METRES_PER_PIXEL,28,64);
+    const fingerVertices = fingerGeo.attributes.position;
+    for (let i=0; i<fingerVertices.count; i++) {
+      const x = fx + fw/2 + fingerVertices.getX(i)/METRES_PER_PIXEL;
+      const y = fy + (106+fh)/2 - fingerVertices.getY(i)/METRES_PER_PIXEL;
+      let dome = 0;
+      for (const [cx,cy,rx,ry] of [[116,447,56,45],[111,539,57,44],[115,632,49,45]]) {
+        dome = Math.max(dome,1-((x-cx)/rx)**2-((y-cy)/ry)**2);
+      }
+      fingerVertices.setZ(i,.00024+.0032*dome);
+    }
+    fingerGeo.computeVertexNormals();
+    const tips = new THREE.Mesh(fingerGeo,new THREE.MeshBasicMaterial({map:fingerMap,transparent:true,
+      alphaTest:.04,depthWrite:false,toneMapped:false}));
+    tips.name='Curled fingertips';tips.renderOrder=2;
+    tips.position.set((fx+fw/2-WIDTH/2)*METRES_PER_PIXEL,(HEIGHT/2-fy-(106+fh)/2)*METRES_PER_PIXEL,0);
+    mesh.add(tips);
     texture.needsUpdate = true;
 
     // Keep the photographed tree reflection and lens. Extend the clean glass
@@ -264,6 +329,9 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     glass = document.createElement('canvas');
     glass.width = DISPLAY.width; glass.height = DISPLAY.height;
     const gg = glass.getContext('2d'), surface = gg.createImageData(glass.width, glass.height);
+    const tree = document.createElement('canvas');
+    tree.width = glass.width; tree.height = glass.height;
+    const layer = tree.getContext('2d'), sky = layer.createImageData(tree.width, tree.height);
     for (let y = 0; y < glass.height; y++) {
       const row = DISPLAY.y + y;
       const sourceY = Math.round(row <= 385 ? row : 385 + (row - 385) * .37);
@@ -271,11 +339,22 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
         const sourceX = sourceY > 387 ? Math.max(178, DISPLAY.x + x) : DISPLAY.x + x;
         const i = 4 * (sourceY * WIDTH + sourceX), o = 4 * (y * glass.width + x);
         const lift = .47 * Math.max(0, Math.min(1, (pixels[i + 1] - 48) / 154));
-        for (let c = 0; c < 3; c++) surface.data[o + c] = pixels[i + c] + (255 - pixels[i + c]) * lift;
+        // Lift the reflected branches off the static plate. Their luminance
+        // is reapplied in the glass shader at the reflected viewing angle.
+        const neighbor = 4*(sourceY*WIDTH+DISPLAY.x+250);
+        const region = THREE.MathUtils.smoothstep(y,61,109)*(1-THREE.MathUtils.smoothstep(y,290,360))
+          * THREE.MathUtils.smoothstep(x,0,11)*(1-THREE.MathUtils.smoothstep(x,116,173));
+        const skyLift = region*Math.max(0,pixels[i+1]-pixels[neighbor+1]);
+        const neutral = Math.min(252,pixels[neighbor+1]+(255-pixels[neighbor+1])*lift);
+        const reflectance = Math.min(1,skyLift*(1-lift)/Math.max(8,255-neutral));
+        sky.data[o]=sky.data[o+1]=sky.data[o+2]=255*reflectance; sky.data[o+3]=255;
+        for (let c = 0; c < 3; c++) surface.data[o + c] = pixels[i + c] + (255 - pixels[i + c]) * lift - skyLift*(1-lift);
         surface.data[o + 3] = 255;
       }
     }
     gg.putImageData(surface, 0, 0);
+    layer.putImageData(sky,0,0);reflection.value=new THREE.CanvasTexture(tree);
+    reflection.value.anisotropy=4;
   }
 
   function redraw(press) {
@@ -290,7 +369,7 @@ export function createPhotoGrip(parent, drawPhone, {onReady, onError}) {
     g.drawImage(glass, 0, 0);
     drawPhone(g, DISPLAY.width, DISPLAY.height, true, press);
     g.translate(-DISPLAY.x, -SCREEN_TOP);
-    g.drawImage(fingers, 0, 106, fingers.width, fingers.height - 106, 48, 395, fingers.width, fingers.height - 106);
+
     // The photograph fixes the contact position. Swing the cast shadow with
     // the raised thumb and tighten it as the pad meets the screen.
     const angle = Math.atan2(TIP.y - BASE.y, TIP.x - BASE.x);

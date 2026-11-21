@@ -1,7 +1,8 @@
 /* Extra detail for three places: the sea floor, the inside of the data center, and the inside of the AI.
    Each function takes the shared helpers from main.js (h) and returns a function to call every frame, or nothing. */
 import * as THREE from 'three';
-import {createOceanHabitat} from './seafloor.js';
+import {createOceanHabitat, eelgrassTuft} from './seafloor.js';
+import {shoreEndProtection, subseaRepeaters} from './subsea-hardware.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 function rng(seed) {
@@ -21,11 +22,13 @@ function copies(parent, geo, mat, list, {cast = false} = {}) {
 
 /* ====================================================================== the sea floor */
 export function seaDetail(h) {
-  const {scene, model, scatter, seaY, bedHeight, seaCurves, seaRepeaterStops, M, GLOW} = h, R = rng(31);
+  const {scene, model, scatter, seaY, bedHeight, seaCurves, seaRepeaterStops, GLOW} = h, R = rng(31);
+  const coast=new THREE.Group();
+  coast.name='Coastal eelgrass and cable hardware';scene.add(coast);
   const depth = x => -seaY(x);
   /* seagrass, but only in the shallow water near each shore: nothing green grows 13,000 feet down */
-  const blade = new THREE.PlaneGeometry(.1, 1, 1, 6); blade.translate(0, .5, 0);
-  const grassMat = new THREE.MeshStandardMaterial({color: 0x3f9a5c, roughness: .8, side: THREE.DoubleSide, envMapIntensity: .1, emissive: 0x1a6a3e, emissiveIntensity: .7});
+  const blade = eelgrassTuft();
+  const grassMat = new THREE.MeshStandardMaterial({vertexColors:true, roughness:.76, side:THREE.DoubleSide, envMapIntensity:.23});
   const sway = {value: 0};
   grassMat.onBeforeCompile = sh => {
     sh.uniforms.uT = sway;
@@ -35,35 +38,24 @@ export function seaDetail(h) {
         transformed.x += sin(uT * 1.6 + ph + position.y * 2.2) * .22 * position.y * position.y;`);
   };
   const grass = [];
-  while (grass.length < 700) {
+  while (grass.length < 240) {
     const x = R() < .5 ? 131 + R() * 13 : 236 + R() * 13, z = (R() - .5) * 22;
     if (depth(x) > 6.5 || Math.abs(z) < .5) continue;
     grass.push({x, y: bedHeight(x,z) - .02, z, ry: R() * 6.28, sx: .8 + R() * .8, sy: .5 + R() * 1.5, sz: 1});
   }
-  copies(scene, blade, grassMat, grass);
+  copies(coast, blade, grassMat, grass);
   /* real scanned rocks and shells (Poly Haven) near the cables */
   const close = (n, lo, hi, s0, s1) => Array.from({length:n}, () => {
     const x=lo+R()*(hi-lo), z=(R()<.5?-1:1)*(1.65+R()*4.8);
     return {x,z,y:bedHeight(x,z)-.06,rot:R()*6.28,s:s0+R()*(s1-s0)};
   });
-  model('rock_09', m => scatter(scene, m, close(14, 140, 242, .6, 1.7), {cast: false}));
-  model('rock_07', m => scatter(scene, m, close(10, 140, 242, .5, 1.4), {cast: false}));
-  model('lambis_shell', m => scatter(scene, m, [...close(4, 131, 146, 1.2, 2.2), ...close(4, 234, 249, 1.2, 2.2)].map(p => ({...p, y: p.y + .1})), {cast: false}));
-  /* repeaters: the thick metal sleeves along a real sea cable that boost the light every 50 miles or so */
-  const body = new THREE.CylinderGeometry(.3, .3, 1.7, 18), cone = new THREE.CylinderGeometry(.16, .3, .55, 18), band = new THREE.TorusGeometry(.31, .035, 8, 20);
-  const steel = M(0x4c595a, {m: .8, r: .35, env: .9}), bands = M(0x9aa8a6, {m: .9, r: .3, env: 1});
-  const up = V(0, 1, 0), q = new THREE.Quaternion(), e = new THREE.Euler();
-  const sleeves = [], ends = [], rings = [];
-  seaCurves.forEach((c, ci) => seaRepeaterStops.forEach(u => {
-    const p = c.getPointAt(u + ci * .03 - .03), t = c.getTangentAt(u + ci * .03 - .03);
-    q.setFromUnitVectors(up, t); e.setFromQuaternion(q);
-    const at = (d, list, flip) => { const o = p.clone().addScaledVector(t, d); if (flip) { const q2 = new THREE.Quaternion().setFromUnitVectors(up, t.clone().negate()), e2 = new THREE.Euler().setFromQuaternion(q2); list.push({x: o.x, y: o.y, z: o.z, rx: e2.x, ry: e2.y, rz: e2.z}); } else list.push({x: o.x, y: o.y, z: o.z, rx: e.x, ry: e.y, rz: e.z}); };
-    at(0, sleeves); at(1.12, ends); at(-1.12, ends, true);
-    [-.6, 0, .6].forEach(d => { const o = p.clone().addScaledVector(t, d), qr = q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), Math.PI / 2)), er = new THREE.Euler().setFromQuaternion(qr); rings.push({x: o.x, y: o.y, z: o.z, rx: er.x, ry: er.y, rz: er.z}); });
-  }));
-  copies(scene, body, steel, sleeves); copies(scene, cone, steel, ends); copies(scene, band, bands, rings);
+  model('rock_09', m => scatter(coast, m, close(14, 140, 242, .6, 1.7), {cast: false}));
+  model('rock_07', m => scatter(coast, m, close(10, 140, 242, .5, 1.4), {cast: false}));
+  model('lambis_shell', m => scatter(coast, m, [...close(4, 131, 146, 1.2, 2.2), ...close(4, 234, 249, 1.2, 2.2)].map(p => ({...p, y: p.y + .1})), {cast: false}));
+  subseaRepeaters(coast, seaCurves, seaRepeaterStops);
+  shoreEndProtection(coast, seaCurves);
   const habitatTick=createOceanHabitat(scene,R,copies,GLOW);
-  return (t,cameraX)=>{sway.value=t;habitatTick(t,cameraX);};
+  return (t,cameraX)=>{coast.visible=cameraX>83 && cameraX<295;sway.value=t;habitatTick(t,cameraX);};
 }
 
 /* ====================================================================== inside the data center */
@@ -152,10 +144,10 @@ export function modelDetail(h) {
   for (let i = 0; i < 26; i++) beams.push({x: (R() - .5) * 90, y: 9, z: -34 - R() * 10, sx: .05 + R() * .08, sy: 18, sz: 1});
   copies(ms, new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({color: 0x6f58ff, transparent: true, opacity: .16, depthWrite: false, blending: THREE.AdditiveBlending}), beams);
   /* signals running along the connections of the nearer network, layer to layer */
-  const LX = [-15, -5, 5, 15], N = 150, node = (c, k) => V(LX[c], 1.2 + k * 1.5, -16);
+  const LX = [-15, -5, 5, 15], N = 84, node = (c, k) => V(LX[c], 1.2 + k * 1.5, -16);
   const pulses = Array.from({length: N}, () => { const c = Math.floor(R() * 3); return {a: node(c, Math.floor(R() * 7)), b: node(c + 1, Math.floor(R() * 7)), ph: R(), sp: .25 + R() * .35}; });
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-  const pts = new THREE.Points(pg, new THREE.PointsMaterial({map: GLOW, color: 0xc9b8ff, size: .34, transparent: true, opacity: .9, depthWrite: false, blending: THREE.AdditiveBlending}));
+  const pts = new THREE.Points(pg, new THREE.PointsMaterial({map: GLOW, color: 0xb9d8e4, size: .30, transparent: true, opacity: .76, depthWrite: false, blending: THREE.AdditiveBlending}));
   pts.frustumCulled = false; ms.add(pts);
   const p = V(0, 0, 0);
   return t => {

@@ -6,6 +6,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 // A cut olive shoot grows opposite pairs at the nodes. The long shoots keep
 // their woody bare bases; smaller shoots carry the leaves out into the light.
 export function oliveBranches(vase, leafMap, random) {
+  const fruit = [];
   const twigs = [],
     positions = [],
     uvs = [],
@@ -85,7 +86,7 @@ export function oliveBranches(vase, leafMap, random) {
     }
   }
 
-  function dress(curve, count, startAt, size) {
+  function dress(curve, count, startAt, size, fruitNode = -1) {
     const spin = random() * Math.PI;
     for (let n = 0; n < count; n++) {
       const t = startAt + ((0.91 - startAt) * n) / (count - 1);
@@ -93,6 +94,13 @@ export function oliveBranches(vase, leafMap, random) {
         tangent = curve.getTangent(t);
       const angle = spin + n * 1.56 + (random() - 0.5) * 0.42;
       const lateral = V(Math.cos(angle), 0, Math.sin(angle) * 0.68);
+      if (n === fruitNode) {
+        const tip = node.clone().addScaledVector(lateral, .0065);
+        tip.y -= .009;
+        stem(new THREE.QuadraticBezierCurve3(node, node.clone().addScaledVector(lateral,.0055), tip),
+          .00046, .00030, 4, true);
+        fruit.push(tip.clone().add(V(0,-.005,0)));
+      }
       for (const sign of [-1, 1]) {
         const d = lateral
           .clone()
@@ -121,7 +129,8 @@ export function oliveBranches(vase, leafMap, random) {
     const end = V(x, y, z),
       curve = new THREE.QuadraticBezierCurve3(foot, V(x * 0.3, y - 0.023, z * 0.35), end);
     stem(curve, 0.00127 + random() * 0.00045, 0.00029, 9);
-    dress(curve, 4, 0.32 + random() * 0.12, 0.04);
+    const fruitNode = x < -.08 || x > .09 ? 2 : z > .03 ? 1 : -1;
+    dress(curve, 4, 0.32 + random() * 0.12, 0.04, fruitNode);
     const node = curve.getPoint(0.36 + random() * 0.14),
       fork = V(forkX, forkY, forkZ);
     const joint = node.clone().lerp(fork, 0.45).addScaledVector(curve.getTangent(0.5), 0.007);
@@ -129,6 +138,16 @@ export function oliveBranches(vase, leafMap, random) {
     stem(branch, 0.00091, 0.00023, 6, true);
     dress(branch, 3, 0.28, 0.036);
   }
+  const olives=new THREE.InstancedMesh(new THREE.SphereGeometry(1,16,12),
+    new THREE.MeshPhysicalMaterial({color:0xffffff,roughness:.52,clearcoat:.14,clearcoatRoughness:.47}),fruit.length);
+  const pose=new THREE.Object3D();
+  fruit.forEach((p,i)=>{
+    pose.position.copy(p);pose.rotation.z=.18*Math.sin(i*2);
+    pose.scale.set(.0040,.0062,.0039).multiplyScalar(.91+.12*Math.cos(i*1.72));
+    pose.updateMatrix();olives.setMatrixAt(i,pose.matrix);
+    olives.setColorAt(i,new THREE.Color([0x73814e,0x7b8556,0x565043,0x697242][i%4]));
+  });
+  olives.castShadow=olives.receiveShadow=true;vase.add(olives);
   const wood = new THREE.Mesh(
     mergeGeometries(twigs),
     new THREE.MeshStandardMaterial({
