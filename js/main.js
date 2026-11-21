@@ -1244,6 +1244,8 @@ function ride(u0,u1,dur,easing){
     homePath.getPointAt(clamp01(u-dir*(2.6*s+.5)/HOME_LEN),camBase);
     camBase.y+=.3*s;
     lookGoal.copy(hero.position);
+    // On the 0.4-second return, an eased target lags behind the camera and points away from home.
+    if(realSpeed&&dir<0) lookCur.copy(lookGoal);
   },easing||ease);
 }
 function placeAt(i,P=POSE[i]){

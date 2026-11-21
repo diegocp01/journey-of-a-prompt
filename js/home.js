@@ -643,7 +643,13 @@ export function createHomeDetails(scene, tile, woodMap) {
   grass.repeat.set(6, 6);
   const m = {
     shakes: [0xa8977d, 0xa39178, 0x9c8b73, 0xad9c81].map((c) => matte(c, 0.93)),
-    lawn: matte(0xc6cfaa, 0.98, { map: grass, alphaMap: gardenMask(), transparent: true, depthWrite: false }),
+    lawn: matte(new THREE.Color(1.4, 2.09, 1.3), 0.98, {
+      map: grass,
+      alphaMap: gardenMask(),
+      opacity: 0.78,
+      transparent: true,
+      depthWrite: false,
+    }),
     shadow: new THREE.MeshBasicMaterial({ map: contactShadow(), transparent: true, depthWrite: false }),
     tile,
     wood: matte(0xffead1, 0.64, { map: woodMap }),
@@ -699,4 +705,14 @@ export function createHomeDetails(scene, tile, woodMap) {
   office(room, m);
   floorPlant(room, m);
   for (const part of [shell, yard, room]) batch(part);
+  // Keep the silhouette on the horizon. Shelves and individual leaves only resolve close to home.
+  for (const [detail, distance] of [
+    [room, 36],
+    [yard, 90],
+  ]) {
+    const lod = new THREE.LOD();
+    root.add(lod);
+    lod.addLevel(detail, 0);
+    lod.addLevel(new THREE.Group(), distance, 0.08);
+  }
 }
