@@ -505,14 +505,14 @@ function setThumb(p){
     const pane=new THREE.Mesh(new THREE.PlaneGeometry(4,1.04),glass);pane.rotation.y=-Math.PI/2;pane.position.set(2.07,1.56,0);pane.renderOrder=2;scene.add(pane);
   }
   bx(2,2.15,1,2.1,-2.15,-.75,wall,WT);bx(2,2.15,1,2.1,.75,2.15,wall,WT);
-  writingDesk=createWritingDesk(scene,roomEnv);
+  writingDesk=createWritingDesk(scene,pmrem);
   const roofTile=pbr(M(0x9e6349,{r:.91}),"clay_roof_tiles_02",{tint:0xcdb89f});
   createHomeDetails(scene,roofTile,writingDesk.woodMap);
   writingDesk.frame(camera.aspect);
   const dark=M(0x14161b,{r:.3,m:.8,env:1});
-  /* the room's ceiling light: the one that casts the soft shadows of the hand, phone, router and plant onto the desk */
-  const key=new THREE.SpotLight(0xffe4c5,3.7,6,.68,.9,2);key.position.set(1.02,2.4,-.5);key.target.position.set(1.62,.75,.16);
-  key.castShadow=true;key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=.4;key.shadow.camera.far=4.5;key.shadow.bias=-.0002;key.shadow.normalBias=.0012;
+  /* Warm window-side fill shapes the stoneware and casts the desk objects' shadows. */
+  const key=new THREE.SpotLight(0xffd9b0,1.7,6,.82,.94,2);key.position.set(1.45,1.57,-.94);key.target.position.set(1.84,.84,.015);
+  key.castShadow=true;key.shadow.intensity=.38;key.shadow.mapSize.set(2048,2048);key.shadow.camera.near=.4;key.shadow.camera.far=4.5;key.shadow.bias=-.0002;key.shadow.normalBias=.0012;
   scene.add(key,key.target);
   wifiLabel=label("wifi",1.87,.95,.27,.034);
   /* phone */
@@ -1725,7 +1725,7 @@ function step(dt,draw){
   sun.intensity=zoneCur.sun;hemi.intensity=zoneCur.hemi;fill.intensity=zoneCur.fill;renderer.toneMappingExposure=zoneCur.exp;
   skyGroup.visible=zn==="out"||zn==="room";skyGroup.position.copy(camera.position);
   setShadowExt(zn==="room"?6:45);
-  writingDesk.lampLight.visible=zn==="room";
+  writingDesk.updateView(camera,zn==="room");
   sun.target.position.copy(focus);sun.position.copy(focus).addScaledVector(SUN_DIR,140);
   fill.position.copy(focus);
   seaLabel.visible=zn==="sea";fill.position.y+=zn==="model"?5:2.6;fill.position.z+=zn==="model"?7:0;
